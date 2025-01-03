@@ -24,3 +24,7 @@ __pycache__
 .env.development
 .env.test
 .env.production
+data/raw/*.csv
+data/processed/*.csv
+data/raw/*.zip
+data/processed/*.zip
