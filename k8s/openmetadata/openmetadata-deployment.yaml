@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: openmetadata
+spec:
+  ports:
+  - port: 8585
+    targetPort: 8585
+  selector:
+    app: openmetadata
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openmetadata
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openmetadata
+  template:
+    metadata:
+      labels:
+        app: openmetadata
+    spec:
+      containers:
+      - name: openmetadata
+        image: openmetadata/server:latest
+        ports:
+        - containerPort: 8585
+        env:
+        - name: OPENMETADATA_DATABASE_USERNAME
+          value: "openmetadata_user"
+        - name: OPENMETADATA_DATABASE_PASSWORD
+          value: "openmetadata_password"
