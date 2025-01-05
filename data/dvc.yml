@@ -1,0 +1,24 @@
+stages:
+  preprocess:
+    cmd: python src/data_preprocessing/preprocessing.py \ --input ../data/raw/creditcard_2023.csv \ --output data/processed/
+    deps:
+    - ../src/data_preprocessing/preprocessing.py
+    - ../data/raw/creditcard_2023.csv
+    outs:
+    - ../data/processed/
+
+  feature_engineering:
+    cmd: python src/data_preprocessing/feature_engineering.py \ --input ../data/processed/ \ --output data/processed/engineered/
+    deps:
+    - ../src/data_preprocessing/feature_engineering.py
+    - ../data/processed/
+    outs:
+    - ../data/processed/engineered/
+
+  train:
+    cmd: python src/models/train.py \ --data data/processed/engineered/ \ --model models/
+    deps:
+    - ../src/models/train.py
+    - ../data/processed/engineered/
+    outs:
+    - models/
