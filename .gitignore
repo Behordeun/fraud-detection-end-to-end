@@ -1,6 +1,7 @@
 .history
 .DS_Store
 .venv
+venv/
 .idea
 __pycache__
 *.pyc
