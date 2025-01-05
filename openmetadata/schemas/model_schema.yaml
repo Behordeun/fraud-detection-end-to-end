@@ -1,0 +1,15 @@
+name: fraud_detection_model
+description: "Random Forest model for fraud detection."
+algorithm: RandomForestClassifier
+owner:
+  type: user
+  id: admin
+service:
+  type: mlflow # Integration with MLflow service
+  id: fraud-detection-mlflow
+hyperparameters:
+  numTrees: 100
+  maxDepth: 10
+metrics:
+  auc: 0.95
+  accuracy: 0.92
