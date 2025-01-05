@@ -1,109 +1,102 @@
-import pandas as pd
-import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, LabelEncoder
-import joblib  # For saving scalers and encoders
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import when, lit
+from pyspark.ml.feature import StandardScaler, VectorAssembler
+from pyspark.sql import DataFrame
 
-def load_data(file_path):
+
+def load_data(file_path: str) -> DataFrame:
     """
     Load the dataset from a CSV file.
     """
+    spark = SparkSession.builder \
+        .appName("CreditCardFraudPreprocessing") \
+        .getOrCreate()
+
     print(f"Loading data from {file_path}...")
-    df = pd.read_csv(file_path)
-    print(f"Data loaded with shape: {df.shape}")
+    df = spark.read.csv(file_path, header=True, inferSchema=True)
+    print(f"Data loaded with schema: {df.printSchema()}")
     return df
 
 
-def handle_missing_values(df):
+def handle_missing_values(df: DataFrame, target_column: str) -> DataFrame:
     """
     Handle missing values in the dataset.
     Replace missing numerical values with the median
     and categorical values with the mode.
     """
     print("Handling missing values...")
-    for column in df.columns:
-        if df[column].isnull().sum() > 0:
-            if df[column].dtype in ["float64", "int64"]:
-                df[column].fillna(df[column].median(), inplace=True)
-            else:
-                df[column].fillna(df[column].mode()[0], inplace=True)
+
+    # Handle missing values for numerical columns
+    numerical_cols = [field for field, dtype in df.dtypes if dtype in ["int", "double"] and field != target_column]
+    for col_name in numerical_cols:
+        median_value = df.approxQuantile(col_name, [0.5], 0)[0]
+        df = df.withColumn(col_name, when(df[col_name].isNull(), lit(median_value)).otherwise(df[col_name]))
+        print(f"Replaced missing values in numerical column '{col_name}' with median: {median_value}")
+
+    # Handle missing values for categorical columns
+    categorical_cols = [field for field, dtype in df.dtypes if dtype == "string"]
+    for col_name in categorical_cols:
+        mode_value = df.groupBy(col_name).count().orderBy("count", ascending=False).first()[0]
+        df = df.fillna({col_name: mode_value})
+        print(f"Replaced missing values in categorical column '{col_name}' with mode: {mode_value}")
+
     print("Missing values handled.")
     return df
 
 
-def scale_features(df, feature_columns, scaler_path="scaler.pkl"):
+def scale_features(df: DataFrame, numerical_columns: list) -> DataFrame:
     """
     Scale numerical features using StandardScaler.
-    Save the scaler for later use.
     """
     print("Scaling features...")
-    scaler = StandardScaler()
-    df[feature_columns] = scaler.fit_transform(df[feature_columns])
-    joblib.dump(scaler, scaler_path)
-    print(f"Scaler saved to {scaler_path}.")
-    return df
+    assembler = VectorAssembler(inputCols=numerical_columns, outputCol="features")
+    scaler = StandardScaler(inputCol="features", outputCol="scaled_features")
+
+    # Assemble and scale features
+    assembled_df = assembler.transform(df)
+    scaled_df = scaler.fit(assembled_df).transform(assembled_df)
+    print("Features scaled.")
+    return scaled_df
 
 
-def encode_labels(df, target_column, encoder_path="label_encoder.pkl"):
-    """
-    Encode target labels using LabelEncoder.
-    Save the encoder for later use.
-    """
-    print("Encoding labels...")
-    encoder = LabelEncoder()
-    df[target_column] = encoder.fit_transform(df[target_column])
-    joblib.dump(encoder, encoder_path)
-    print(f"Label encoder saved to {encoder_path}.")
-    return df
-
-
-def split_data(df, target_column, test_size=0.2, random_state=42):
+def split_data(df: DataFrame, test_size: float = 0.3, seed: int = 42):
     """
     Split the dataset into training and testing sets.
     """
     print("Splitting data into training and testing sets...")
-    X = df.drop(columns=[target_column])
-    y = df[target_column]
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=random_state
-    )
-    print("Data split complete.")
-    return X_train, X_test, y_train, y_test
+    train_df, test_df = df.randomSplit([1 - test_size, test_size], seed=seed)
+    print(f"Data split complete. Training data: {train_df.count()}, Testing data: {test_df.count()}")
+    return train_df, test_df
 
 
-def save_preprocessed_data(X_train, X_test, y_train, y_test, output_dir="data/processed"):
+def save_preprocessed_data(train_df: DataFrame, test_df: DataFrame, output_dir: str):
     """
-    Save the preprocessed data to CSV files.
+    Save the preprocessed data to Parquet files.
     """
     print(f"Saving preprocessed data to {output_dir}...")
-    X_train.to_csv(f"{output_dir}/X_train.csv", index=False)
-    X_test.to_csv(f"{output_dir}/X_test.csv", index=False)
-    y_train.to_csv(f"{output_dir}/y_train.csv", index=False)
-    y_test.to_csv(f"{output_dir}/y_test.csv", index=False)
+    train_df.write.mode("overwrite").parquet(f"{output_dir}/train")
+    test_df.write.mode("overwrite").parquet(f"{output_dir}/test")
     print("Preprocessed data saved.")
 
 
 if __name__ == "__main__":
     # Example workflow
-    DATA_PATH = "../data/credit_card_fraud.csv"
+    DATA_PATH = "data/raw/creditcard.csv"
     TARGET_COLUMN = "Class"  # Update this with the correct target column name
-    PROCESSED_DIR = "../data/processed"
+    PROCESSED_DIR = "data/processed"
 
     # Load data
     data = load_data(DATA_PATH)
 
     # Handle missing values
-    data = handle_missing_values(data)
+    data = handle_missing_values(data, TARGET_COLUMN)
 
     # Scale numerical features
-    numerical_features = data.select_dtypes(include=["float64", "int64"]).columns.drop(TARGET_COLUMN)
+    numerical_features = [field for field, dtype in data.dtypes if dtype in ["int", "double"] and field != TARGET_COLUMN]
     data = scale_features(data, numerical_features)
 
-    # Encode target labels
-    data = encode_labels(data, TARGET_COLUMN)
-
     # Split data into train and test sets
-    X_train, X_test, y_train, y_test = split_data(data, TARGET_COLUMN)
+    train_data, test_data = split_data(data)
 
     # Save preprocessed data
-    save_preprocessed_data(X_train, X_test, y_train, y_test, output_dir=PROCESSED_DIR)
+    save_preprocessed_data(train_data, test_data, PROCESSED_DIR)
