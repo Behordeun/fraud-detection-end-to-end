@@ -1,50 +1,27 @@
-# PySpark for distributed data processing
-pyspark
+# Core Libraries
+pyspark         # Core PySpark library
+numpy           # For numerical computations
+pandas          # Data manipulation (if needed for external utilities)
+scikit-learn    # For additional ML tools like scaling (if needed)
+joblib          # For saving and loading encoders and scalers
+matplotlib      # For data visualization (if required in EDA notebooks)
+seaborn         # Advanced visualization library
+plotly          # Advanced visualization library
 
-# Pandas for small-scale data manipulation
-pandas
+# MLOps and Experiment Tracking
+mlflow          # For experiment tracking
+dvc[s3]         # For data version control with MinIO (S3 compatibility)
+boto3           # AWS SDK for MinIO connection
 
-# NumPy for numerical operations
-numpy
+# Metadata Management
+openmetadata-ingestion     # For metadata management
+PyYAML                     # For reading configuration files (used in OpenMetadata)
 
-# DVC for data version control
-dvc
-dvc[s3]
-
-# MLflow for experiment tracking
-mlflow
-
-# OpenMetadata for metadata management
-openmetadata-ingestion
-
-# Evidently for monitoring data and model drift
-evidently
-
-# Scikit-learn for additional machine learning utilities
-scikit-learn
-
-# Jupyter for exploratory data analysis
-jupyter
-
-# Matplotlib, Seaborn, and Plotly for visualizations
-matplotlib
-Seaborn
-plotly
-
-# PyArrow for Parquet file handling (optional for PySpark)
-pyarrow
-
-# Boto3 for MinIO integration (optional for DVC)
-boto3
-
-# Flask (optional for serving models)
-flask
-gunicorn
-
-autopep8
-autoflake
-black
-isort
-
-pytest
-kaggle
+# Testing and Code Quality
+pytest              # For testing
+flake8              # For code linting
+autopep8            # For automatic PEP 8 formatting
+autoflak            # For removing unused imports
+isort               # For sorting imports
+black               # For code formatting
+apache-airflow
