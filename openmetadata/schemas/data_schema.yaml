@@ -1,0 +1,15 @@
+name: fraud_detection_data
+description: "Dataset for fraud detection stored in MinIO."
+owner:
+  type: user
+  id: admin
+service:
+  type: s3
+  id: fraud-detection-minio
+columns:
+- name: id
+  dataType: INTEGER
+- name: amount
+  dataType: FLOAT
+- name: label
+  dataType: BOOLEAN
