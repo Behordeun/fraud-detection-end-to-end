@@ -1,0 +1,24 @@
+global:
+  scrape_interval: 15s # Default scrape interval
+  evaluation_interval: 15s # Default rule evaluation interval
+  scrape_timeout: 10s # Default timeout for scraping targets
+
+scrape_configs:
+# Scrape Prometheus server itself
+- job_name: "prometheus"
+  static_configs:
+  - targets:
+    - "localhost:9090" # Prometheus server metrics
+
+# Scrape OpenMetadata server metrics
+- job_name: "openmetadata"
+  static_configs:
+  - targets:
+    - "<OpenMetadata-Service-LoadBalancer-IP>:8585" # Replace with OpenMetadata LoadBalancer IP
+
+# Scrape MinIO metrics
+- job_name: "minio"
+  metrics_path: /minio/v2/metrics/cluster # MinIO metrics endpoint
+  static_configs:
+  - targets:
+    - "<MinIO-Service-LoadBalancer-IP>:9000" # Replace with MinIO LoadBalancer IP
