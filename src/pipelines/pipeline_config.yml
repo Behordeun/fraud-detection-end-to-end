@@ -1,0 +1,12 @@
+dvc_pipeline:
+  raw_data_path: "../../data/raw"
+  processed_data_path: "../../data/processed"
+  engineered_data_path: "../../data/processed/engineered"
+  drift_report_path: "monitoring_reports/data_drift_heatmap.png"
+
+mlflow_pipeline:
+  experiment_name: "Credit Card Fraud Detection"
+  tracking_uri: "http://localhost:5000"
+  model_metrics:
+    auc: 0.95
+    accuracy: 0.92
