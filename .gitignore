@@ -2,6 +2,7 @@
 .DS_Store
 .venv
 venv/
+venv/
 .idea
 __pycache__
 *.pyc
@@ -32,4 +33,3 @@ data/processed/*.zip
 *.ipynb
 *.sh
 get-pip.py
-*.md
