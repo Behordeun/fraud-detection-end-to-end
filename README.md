@@ -7,15 +7,16 @@ This project demonstrates an end-to-end Machine Learning pipeline for Credit Car
 ---
 
 ## Table of Contents
-    1.  [Project Overview](#Project Overview)
-    2.  [Features](#Features)
-    3.  [Architecture](#Architecture)
-    4.  [Setup Instructions](#Setup Instructions)
-    5.  [Usage](#Usage)
-    6.  [Project Structure](#Project Structure)
-    7.  [Monitoring and Alerts](#Monitoring and Alerts)
-    8.  [Troubleshooting](#Troubleshooting)
-    9.  [Contributing](#Contributing)
+
+1. [Project Overview](#Project Overview)
+2. [Features](#Features)
+3. [Architecture](#Architecture)
+4. [Setup Instructions](#Setup Instructions)
+5. [Usage](#Usage)
+6. [Project Structure](#Project Structure)
+7. [Monitoring and Alerts](#Monitoring and Alerts)
+8. [Troubleshooting](#Troubleshooting)
+9. [Contributing](#Contributing)
 
 ---
 
@@ -48,18 +49,7 @@ The system is built with scalability and reproducibility in mind, using tools su
 
 The architecture consists of the following components:
 
-+----------------+       +-------------+       +------------+       +-------------+
-|  Raw Data      |----->| DVC Pipeline |----->| MLflow      |----->| Trained      |
-|  (MinIO)       |       | (Airflow)    |       | (Experiment|       | Model       |
-+----------------+       +-------------+       | Tracking)  |       +-------------+
-                                                   |
-+----------------+                                \|/
-| OpenMetadata   |                             +-------------+
-| (Lineage +     |<---------------------------| Grafana      |
-| Metadata)      |     Metrics + Logs         | Prometheus   |
-+----------------+                             +-------------+
-
----
+![Architectural Diagram](Architecture.png)
 
 ## Setup Instructions
 
@@ -85,19 +75,14 @@ docker-compose up -d
 
 ### 4. Access Services
 
-|---|---|---|
-Service URL Notes
-|---|---|---|
-MinIO Console   http://localhost:9001   Manage raw and processed data.
-|---|---|
-Prometheus  http://localhost:9090   Monitor metrics and alerts.
-|---|---|---
-Grafana http://localhost:3000   Visualize dashboards.
-|---|---|---|
-Airflow http://localhost:8080   Orchestrate workflows.
-|---|---|---
-OpenMetadata    http://localhost:8585   Manage metadata.
-|---|---|---|
+
+| Service | URL | Notes |
+| ---------------------------------------------------------------------- | --- | --- |
+| MinIO Console |  http://localhost:9001  |  Manage raw and processed data.                                                                 |
+| Prometheus | http://localhost:9090  | Monitor metrics and alerts.                                                                  |
+| Grafana | http://localhost:3000 |  Visualize dashboards.
+| Airflow | http://localhost:8080 |  Orchestrate workflows.                                                                |
+| OpenMetadata |   http://localhost:8585 |  Manage metadata.               |                                                                  |
 
 ---
 
@@ -106,6 +91,7 @@ OpenMetadata    http://localhost:8585   Manage metadata.
 ### 1. Data Versioning with DVC
 
 Add, version, and push raw data:
+
 ```
 dvc init
 dvc add data/raw/creditcard_2023.csv
@@ -116,11 +102,13 @@ dvc push
 ### 2. Run Pipelines
 
 - DVC Pipeline:
+
 ```
 dvc repro
 ```
+
 - Airflow DAG:
-Enable and trigger the fraud_detection_dag from the Airflow UI.
+  Enable and trigger the fraud_detection_dag from the Airflow UI.
 
 ### 3. Monitor Metrics
 
@@ -190,8 +178,9 @@ Enable and trigger the fraud_detection_dag from the Airflow UI.
 - MLflow and custom metrics.
 
 ## Troubleshooting
-    
+
 ### 1.  Service Not Starting:
+
 - Check logs:
 
 ```
@@ -203,6 +192,7 @@ docker logs <container_name>
 - Verify dvc remote settings and MinIO credentials.
 
 ### 3.  Prometheus Target Down:
+
 - Ensure the service is accessible from Prometheus.
 
 ## Contributing
@@ -211,7 +201,9 @@ Contributions are welcome! Please follow these steps:
 
 1. Fork the repository.
 2. Create a feature branch:
+
 ```
 git checkout -b feature/new-feature
 ```
-3.  Commit your changes and create a pull request.
+
+3. Commit your changes and create a pull request.
