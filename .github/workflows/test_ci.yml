@@ -11,6 +11,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.9, 3.10, 3.11]  # Test across multiple Python versions
 
     steps:
     # Checkout the repository
@@ -21,21 +24,42 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: 3.11
+        python-version: ${{ matrix.python-version }}
+
+    # Cache dependencies
+    - name: Cache Python packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-${{ matrix.python-version }}-
 
     # Install dependencies
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pytest pytest-cov
+        pip install flake8 black autoflake pytest pytest-cov pytest-xdist
+
+    # Remove unused variables and imports
+    - name: Clean unused variables and imports
+      run: |
+        autoflake --in-place --remove-unused-variables --remove-all-unused-imports -r src/ tests/
+
+    # Format code with Black
+    - name: Format code with Black
+      run: black --check src/ tests/
+
+    # Run Flake8 for linting
+    - name: Run Flake8
+      run: flake8 src/ tests/
 
     # Run tests with coverage
     - name: Run tests
       env:
-        PYTHONPATH: ./src  # Add the src directory to the Python path
+        PYTHONPATH: ./src
       run: |
-        pytest --cov=src tests/
+        pytest -n auto --cov=src --cov-report=html tests/
 
     # Upload coverage report
     - name: Upload coverage report
@@ -43,6 +67,14 @@ jobs:
       with:
         name: coverage-report
         path: htmlcov/
+
+    # Deploy coverage report to GitHub Pages (optional)
+    - name: Deploy Coverage to GitHub Pages
+      if: success()
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./htmlcov
 
   lint:
     runs-on: ubuntu-latest
@@ -61,12 +93,13 @@ jobs:
     # Install linters
     - name: Install linters
       run: |
+        python -m pip install --upgrade pip
         pip install flake8 black
 
-    # Run flake8
+    # Run Flake8
     - name: Run Flake8
       run: flake8 src/ tests/
 
-    # Run black
+    # Run Black
     - name: Check code formatting
       run: black --check src/ tests/
