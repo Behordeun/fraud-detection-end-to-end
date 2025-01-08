@@ -1,12 +1,13 @@
 import logging
-import yaml
 import os
+
 import boto3
-from pyspark.sql import DataFrame
+import matplotlib.pyplot as plt
 import mlflow
 import pandas as pd
-import matplotlib.pyplot as plt
 import seaborn as sns
+import yaml
+from pyspark.sql import DataFrame
 from pyspark.sql.functions import col, count
 
 
@@ -63,7 +64,10 @@ def check_data_quality(df: DataFrame):
 
     # Check for missing values
     missing_counts = df.select([count(col(c)).alias(c) for c in df.columns]).collect()
-    missing_report = {col_name: total_rows - count for col_name, count in missing_counts[0].asDict().items()}
+    missing_report = {
+        col_name: total_rows - count
+        for col_name, count in missing_counts[0].asDict().items()
+    }
 
     # Check for duplicate rows
     duplicate_rows = total_rows - df.dropDuplicates().count()
@@ -118,7 +122,9 @@ def setup_mlflow_experiment(experiment_name: str):
     Set up or retrieve an MLflow experiment.
     :param experiment_name: Name of the MLflow experiment.
     """
-    mlflow.set_tracking_uri("http://localhost:5000")  # Update with your MLflow server URL
+    mlflow.set_tracking_uri(
+        "http://localhost:5000"
+    )  # Update with your MLflow server URL
     mlflow.set_experiment(experiment_name)
 
 
@@ -160,6 +166,7 @@ class CustomError(Exception):
     """
     Custom exception class for project-specific errors.
     """
+
     def __init__(self, message):
         super().__init__(message)
         logging.error(message)
@@ -179,5 +186,7 @@ if __name__ == "__main__":
     logger.info("Logger initialized.")
 
     # Example Drift Report
-    drift_data = {"feature1": {"baseline_mean": 0.5, "current_mean": 0.7, "drift_detected": True}}
+    drift_data = {
+        "feature1": {"baseline_mean": 0.5, "current_mean": 0.7, "drift_detected": True}
+    }
     generate_drift_report(drift_data, "monitoring_reports/drift_heatmap.png")
