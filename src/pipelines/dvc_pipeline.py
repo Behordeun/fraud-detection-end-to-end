@@ -1,5 +1,12 @@
-from utils import load_config, check_data_quality, generate_drift_report, handle_error, get_spark_session
 import subprocess
+
+from utils import (
+    check_data_quality,
+    generate_drift_report,
+    get_spark_session,
+    handle_error,
+    load_config,
+)
 
 
 def run_dvc_pipeline(config_path: str):
@@ -16,14 +23,22 @@ def run_dvc_pipeline(config_path: str):
         subprocess.run(["dvc", "add", dvc_config["raw_data_path"]], check=True)
 
         # Step 2: Data preprocessing
-        subprocess.run([
-            "dvc", "run",
-            "-n", "preprocess",
-            "-d", "src/data_processing/preprocess.py",
-            "-d", dvc_config["raw_data_path"],
-            "-o", dvc_config["processed_data_path"],
-            "python src/data_processing/preprocess.py"
-        ], check=True)
+        subprocess.run(
+            [
+                "dvc",
+                "run",
+                "-n",
+                "preprocess",
+                "-d",
+                "src/data_processing/preprocess.py",
+                "-d",
+                dvc_config["raw_data_path"],
+                "-o",
+                dvc_config["processed_data_path"],
+                "python src/data_processing/preprocess.py",
+            ],
+            check=True,
+        )
 
         # Step 3: Perform data quality checks on preprocessed data
         print("Performing data quality checks...")
@@ -32,18 +47,32 @@ def run_dvc_pipeline(config_path: str):
         check_data_quality(df)
 
         # Step 4: Feature engineering
-        subprocess.run([
-            "dvc", "run",
-            "-n", "feature_engineering",
-            "-d", "src/data_processing/feature_engineering.py",
-            "-d", f"{dvc_config['processed_data_path']}/train",
-            "-o", dvc_config["engineered_data_path"],
-            "python src/data_processing/feature_engineering.py"
-        ], check=True)
+        subprocess.run(
+            [
+                "dvc",
+                "run",
+                "-n",
+                "feature_engineering",
+                "-d",
+                "src/data_processing/feature_engineering.py",
+                "-d",
+                f"{dvc_config['processed_data_path']}/train",
+                "-o",
+                dvc_config["engineered_data_path"],
+                "python src/data_processing/feature_engineering.py",
+            ],
+            check=True,
+        )
 
         # Step 5: Generate a drift report (if applicable)
         print("Generating drift report...")
-        drift_data = {"feature1": {"baseline_mean": 0.5, "current_mean": 0.7, "drift_detected": True}}
+        drift_data = {
+            "feature1": {
+                "baseline_mean": 0.5,
+                "current_mean": 0.7,
+                "drift_detected": True,
+            }
+        }
         generate_drift_report(drift_data, dvc_config["drift_report_path"])
 
         print("DVC pipeline successfully executed.")
