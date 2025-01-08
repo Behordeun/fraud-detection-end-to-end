@@ -12,8 +12,7 @@ def spark():
 def test_preprocess_data(spark):
     # Sample raw data
     raw_data = spark.createDataFrame(
-        [(1, 200.0, None), (2, None, 1.0), (3, 300.0, 0.0)],
-        ["id", "amount", "label"]
+        [(1, 200.0, None), (2, None, 1.0), (3, 300.0, 0.0)], ["id", "amount", "label"]
     )
 
     processed_data = preprocess_data(raw_data)
@@ -25,10 +24,7 @@ def test_preprocess_data(spark):
 
 def test_add_derived_features(spark):
     # Sample processed data
-    processed_data = spark.createDataFrame(
-        [(1, 200.0), (2, 300.0)],
-        ["id", "amount"]
-    )
+    processed_data = spark.createDataFrame([(1, 200.0), (2, 300.0)], ["id", "amount"])
 
     derived_data = add_derived_features(processed_data)
 
