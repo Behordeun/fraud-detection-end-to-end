@@ -11,10 +11,7 @@ def spark():
 
 def test_calculate_statistics(spark):
     # Sample data
-    data = spark.createDataFrame(
-        [(1.0,), (2.0,), (3.0,)],
-        ["amount"]
-    )
+    data = spark.createDataFrame([(1.0,), (2.0,), (3.0,)], ["amount"])
 
     stats = calculate_statistics(data, ["amount"])
 
@@ -32,7 +29,6 @@ def test_compare_distributions():
 
     # Validate drift detection
     assert drift_report["amount"]["drift_detected"] is True
-
 
 
 def test_model_drift_evaluation():
