@@ -32,3 +32,9 @@ def test_compare_distributions():
 
     # Validate drift detection
     assert drift_report["amount"]["drift_detected"] is True
+
+
+
+def test_model_drift_evaluation():
+    result = evaluate_model(model, test_data)
+    assert result >= 0  # Example assertion for model drift evaluation
