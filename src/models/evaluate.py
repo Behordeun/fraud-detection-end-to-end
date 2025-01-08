@@ -1,15 +1,13 @@
-from pyspark.sql import SparkSession
-from pyspark.ml.evaluation import BinaryClassificationEvaluator
 from pyspark.ml import PipelineModel
+from pyspark.ml.evaluation import BinaryClassificationEvaluator
+from pyspark.sql import SparkSession
 
 
 def evaluate_model(test_data_path: str, model_path: str):
     """
     Evaluate a trained machine learning model on test data.
     """
-    spark = SparkSession.builder \
-        .appName("CreditCardFraudEvaluation") \
-        .getOrCreate()
+    spark = SparkSession.builder.appName("CreditCardFraudEvaluation").getOrCreate()
 
     print("Loading test data...")
     test_data = spark.read.parquet(test_data_path)
@@ -20,7 +18,9 @@ def evaluate_model(test_data_path: str, model_path: str):
     print("Making predictions on test data...")
     predictions = model.transform(test_data)
 
-    evaluator = BinaryClassificationEvaluator(labelCol="label", rawPredictionCol="rawPrediction", metricName="areaUnderROC")
+    evaluator = BinaryClassificationEvaluator(
+        labelCol="label", rawPredictionCol="rawPrediction", metricName="areaUnderROC"
+    )
     auc = evaluator.evaluate(predictions)
     print(f"Model AUC: {auc:.4f}")
 
