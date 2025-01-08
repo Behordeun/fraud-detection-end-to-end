@@ -7,7 +7,8 @@ from src.pipelines.mlflow_pipeline import run_mlflow_pipeline
 def mock_config_path(tmpdir):
     # Create a mock pipeline configuration
     config_file = tmpdir.join("pipeline_config.yaml")
-    config_file.write("""
+    config_file.write(
+        """
     dvc_pipeline:
         raw_data_path: "data/raw"
         processed_data_path: "data/processed"
@@ -19,7 +20,8 @@ def mock_config_path(tmpdir):
         model_metrics:
         auc: 0.95
         accuracy: 0.92
-    """)
+    """
+    )
     return str(config_file)
 
 
