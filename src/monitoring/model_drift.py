@@ -1,25 +1,27 @@
-from pyspark.sql import SparkSession
-from pyspark.ml.evaluation import BinaryClassificationEvaluator
-from pyspark.ml import PipelineModel
 import pandas as pd
+from pyspark.ml import PipelineModel
+from pyspark.ml.evaluation import BinaryClassificationEvaluator
+from pyspark.sql import SparkSession
 
 
 def evaluate_model(model, data, label_col="label"):
     """
     Evaluate the model on the provided data.
     """
-    evaluator = BinaryClassificationEvaluator(labelCol=label_col, metricName="areaUnderROC")
+    evaluator = BinaryClassificationEvaluator(
+        labelCol=label_col, metricName="areaUnderROC"
+    )
     auc = evaluator.evaluate(model.transform(data))
     return auc
 
 
-def monitor_model_drift(baseline_model_path, current_model_path, test_data_path, output_path):
+def monitor_model_drift(
+    baseline_model_path, current_model_path, test_data_path, output_path
+):
     """
     Monitor model drift by comparing the performance of baseline and current models.
     """
-    spark = SparkSession.builder \
-        .appName("ModelDriftMonitoring") \
-        .getOrCreate()
+    spark = SparkSession.builder.appName("ModelDriftMonitoring").getOrCreate()
 
     print("Loading test data...")
     test_data = spark.read.parquet(test_data_path)
@@ -42,7 +44,7 @@ def monitor_model_drift(baseline_model_path, current_model_path, test_data_path,
     report = {
         "baseline_auc": baseline_auc,
         "current_auc": current_auc,
-        "drift_detected": drift_detected
+        "drift_detected": drift_detected,
     }
 
     pd.DataFrame([report]).to_csv(output_path)
@@ -55,4 +57,6 @@ if __name__ == "__main__":
     TEST_DATA_PATH = "data/processed/engineered/test"
     OUTPUT_PATH = "monitoring_reports/model_drift_report.csv"
 
-    monitor_model_drift(BASELINE_MODEL_PATH, CURRENT_MODEL_PATH, TEST_DATA_PATH, OUTPUT_PATH)
+    monitor_model_drift(
+        BASELINE_MODEL_PATH, CURRENT_MODEL_PATH, TEST_DATA_PATH, OUTPUT_PATH
+    )
