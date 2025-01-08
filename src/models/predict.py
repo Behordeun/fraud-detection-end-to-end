@@ -1,14 +1,12 @@
-from pyspark.sql import SparkSession
 from pyspark.ml import PipelineModel
+from pyspark.sql import SparkSession
 
 
 def make_predictions(new_data_path: str, model_path: str, output_path: str):
     """
     Make predictions on new data using the trained model.
     """
-    spark = SparkSession.builder \
-        .appName("CreditCardFraudPrediction") \
-        .getOrCreate()
+    spark = SparkSession.builder.appName("CreditCardFraudPrediction").getOrCreate()
 
     print("Loading new data...")
     new_data = spark.read.parquet(new_data_path)
@@ -20,7 +18,9 @@ def make_predictions(new_data_path: str, model_path: str, output_path: str):
     predictions = model.transform(new_data)
 
     print(f"Saving predictions to {output_path}...")
-    predictions.select("engineered_features", "prediction").write.mode("overwrite").parquet(output_path)
+    predictions.select("engineered_features", "prediction").write.mode(
+        "overwrite"
+    ).parquet(output_path)
     print("Predictions saved successfully.")
 
 
