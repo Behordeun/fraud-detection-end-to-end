@@ -1,6 +1,6 @@
+import pandas as pd
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, mean, stddev
-import pandas as pd
 
 
 def calculate_statistics(df, columns):
@@ -10,8 +10,7 @@ def calculate_statistics(df, columns):
     stats = {}
     for col_name in columns:
         stats[col_name] = df.select(
-            mean(col(col_name)).alias("mean"),
-            stddev(col(col_name)).alias("stddev")
+            mean(col(col_name)).alias("mean"), stddev(col(col_name)).alias("stddev")
         ).collect()[0]
     return stats
 
@@ -29,7 +28,7 @@ def compare_distributions(baseline_stats, current_stats):
         drift_report[column] = {
             "baseline_mean": baseline_mean,
             "current_mean": current_mean,
-            "drift_detected": drift
+            "drift_detected": drift,
         }
     return drift_report
 
@@ -38,16 +37,16 @@ def monitor_data_drift(baseline_data_path, current_data_path, output_path):
     """
     Monitor data drift by comparing current data to baseline data.
     """
-    spark = SparkSession.builder \
-        .appName("DataDriftMonitoring") \
-        .getOrCreate()
+    spark = SparkSession.builder.appName("DataDriftMonitoring").getOrCreate()
 
     print("Loading baseline and current datasets...")
     baseline_data = spark.read.parquet(baseline_data_path)
     current_data = spark.read.parquet(current_data_path)
 
     # Identify numerical columns
-    numerical_columns = [field for field, dtype in baseline_data.dtypes if dtype in ["int", "double"]]
+    numerical_columns = [
+        field for field, dtype in baseline_data.dtypes if dtype in ["int", "double"]
+    ]
 
     print("Calculating statistics for baseline and current datasets...")
     baseline_stats = calculate_statistics(baseline_data, numerical_columns)
