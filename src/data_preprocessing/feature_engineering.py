@@ -1,16 +1,15 @@
-from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, when, lit, log, pow, sqrt
 from pyspark.ml.feature import VectorAssembler
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql.functions import col, lit, log, pow, sqrt, when
 
 
 def load_data(input_path: str) -> DataFrame:
     """
     Load the preprocessed data from Parquet files.
     """
-    spark = SparkSession.builder \
-        .appName("CreditCardFraudFeatureEngineering") \
-        .getOrCreate()
+    spark = SparkSession.builder.appName(
+        "CreditCardFraudFeatureEngineering"
+    ).getOrCreate()
 
     print(f"Loading data from {input_path}...")
     df = spark.read.parquet(input_path)
@@ -29,10 +28,20 @@ def add_derived_features(df: DataFrame) -> DataFrame:
     print("Adding derived features...")
 
     # Example: Log transformation (to reduce skewness for features > 0)
-    numerical_cols = [field for field, dtype in df.dtypes if dtype in ["int", "double"] and field != "label"]
+    numerical_cols = [
+        field
+        for field, dtype in df.dtypes
+        if dtype in ["int", "double"] and field != "label"
+    ]
     for col_name in numerical_cols:
-        if col_name not in ["features", "scaled_features"]:  # Avoid columns already in vectorized form
-            df = df.withColumn(f"log_{col_name}", when(df[col_name] > 0, log(df[col_name])).otherwise(lit(0)))
+        if col_name not in [
+            "features",
+            "scaled_features",
+        ]:  # Avoid columns already in vectorized form
+            df = df.withColumn(
+                f"log_{col_name}",
+                when(df[col_name] > 0, log(df[col_name])).otherwise(lit(0)),
+            )
 
     # Example: Interaction terms (multiplication of selected features)
     df = df.withColumn("interaction", col("feature1") * col("feature2"))
@@ -52,7 +61,9 @@ def select_features(df: DataFrame, selected_columns: list) -> DataFrame:
     """
     print("Selecting features...")
     # Use a VectorAssembler to create a feature vector for selected columns
-    assembler = VectorAssembler(inputCols=selected_columns, outputCol="engineered_features")
+    assembler = VectorAssembler(
+        inputCols=selected_columns, outputCol="engineered_features"
+    )
     df = assembler.transform(df)
     print(f"Selected features: {selected_columns}")
     return df
@@ -80,7 +91,11 @@ if __name__ == "__main__":
 
     # Select features for training
     # Assuming we use all numerical columns and the new engineered features
-    selected_features = [col for col in data.columns if "log_" in col or "_squared" in col or "_sqrt" in col]
+    selected_features = [
+        col
+        for col in data.columns
+        if "log_" in col or "_squared" in col or "_sqrt" in col
+    ]
     data = select_features(data, selected_features)
 
     # Save engineered data
