@@ -32,3 +32,4 @@ data/processed/*.zip
 *.ipynb
 *.sh
 get-pip.py
+*.drawio
