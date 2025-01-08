@@ -21,7 +21,7 @@ PyYAML                     # For reading configuration files (used in OpenMetada
 pytest              # For testing
 flake8              # For code linting
 autopep8            # For automatic PEP 8 formatting
-autoflak            # For removing unused imports
+autoflake            # For removing unused imports
 isort               # For sorting imports
 black               # For code formatting
 apache-airflow
