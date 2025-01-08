@@ -35,7 +35,7 @@ def add_derived_features(df: DataFrame) -> DataFrame:
             df = df.withColumn(f"log_{col_name}", when(df[col_name] > 0, log(df[col_name])).otherwise(lit(0)))
 
     # Example: Interaction terms (multiplication of selected features)
-    interaction_term = df.withColumn("interaction", col(numerical_cols[0]) * col(numerical_cols[1]))
+    df = df.withColumn("interaction", col("feature1") * col("feature2"))
 
     # Example: Polynomial features
     for col_name in numerical_cols:
