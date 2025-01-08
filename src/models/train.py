@@ -1,22 +1,22 @@
-from pyspark.sql import SparkSession
-from pyspark.ml.classification import RandomForestClassifier
 import mlflow
 import mlflow.spark
+from pyspark.ml.classification import RandomForestClassifier
+from pyspark.sql import SparkSession
 
 
 def train_model(train_data_path: str, model_output_path: str):
     """
     Train a machine learning model using PySpark.
     """
-    spark = SparkSession.builder \
-        .appName("CreditCardFraudTraining") \
-        .getOrCreate()
+    spark = SparkSession.builder.appName("CreditCardFraudTraining").getOrCreate()
 
     print("Loading training data...")
     train_data = spark.read.parquet(train_data_path)
 
     print("Defining the RandomForestClassifier...")
-    rf = RandomForestClassifier(featuresCol="engineered_features", labelCol="label", numTrees=100, maxDepth=10)
+    rf = RandomForestClassifier(
+        featuresCol="engineered_features", labelCol="label", numTrees=100, maxDepth=10
+    )
 
     print("Training the model...")
     rf_model = rf.fit(train_data)
