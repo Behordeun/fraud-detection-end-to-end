@@ -1,5 +1,11 @@
-from utils import load_config, setup_mlflow_experiment, log_metrics_to_mlflow, handle_error
 import subprocess
+
+from utils import (
+    handle_error,
+    load_config,
+    log_metrics_to_mlflow,
+    setup_mlflow_experiment,
+)
 
 
 def run_mlflow_pipeline(config_path: str):
@@ -15,15 +21,11 @@ def run_mlflow_pipeline(config_path: str):
 
         # Step 1: Train the model
         print("Training the model...")
-        subprocess.run([
-            "python", "src/models/train.py"
-        ], check=True)
+        subprocess.run(["python", "src/models/train.py"], check=True)
 
         # Step 2: Evaluate the model
         print("Evaluating the model...")
-        subprocess.run([
-            "python", "src/models/evaluate.py"
-        ], check=True)
+        subprocess.run(["python", "src/models/evaluate.py"], check=True)
 
         # Log metrics to MLflow
         print("Logging metrics to MLflow...")
