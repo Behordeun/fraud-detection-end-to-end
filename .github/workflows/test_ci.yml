@@ -11,7 +11,8 @@ on:
 permissions:
   contents: write      # Required for uploading artifacts and deploying to GitHub Pages
   pages: write         # Required for deploying to GitHub Pages
-  id-token: write      # Required for authentication in certain actions (e.g., deploy-pages)
+  id-token: write      # Required for authentication in actions (e.g., deploy-pages)
+  security-events: write # Required for CodeQL analysis
 
 jobs:
   test:
@@ -87,7 +88,7 @@ jobs:
         name: coverage-report
         path: htmlcov/
 
-    # Deploy coverage report to GitHub Pages (optional)
+    # Deploy coverage report to GitHub Pages
     - name: Deploy Coverage to GitHub Pages
       if: success()
       uses: peaceiris/actions-gh-pages@v3
@@ -122,3 +123,25 @@ jobs:
     # Run Black
     - name: Check code formatting
       run: black --check src/ tests/
+
+  codeql:
+    name: Analyze with CodeQL
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write   # Required for uploading results to GitHub
+    steps:
+    # Initialize CodeQL
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v2
+      with:
+        languages: python
+
+    # Checkout the repository
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    # Run CodeQL analysis
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
