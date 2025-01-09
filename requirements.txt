@@ -18,11 +18,12 @@ openmetadata-ingestion     # For metadata management
 PyYAML                     # For reading configuration files (used in OpenMetadata)
 
 # Testing and Code Quality
-pytest              # For testing
+pytest  
+pytest-cov
+pytest-xdist        # For testing
 flake8              # For code linting
 autopep8            # For automatic PEP 8 formatting
-autoflake            # For removing unused imports
+autoflake           # For removing unused imports
 isort               # For sorting imports
 black               # For code formatting
 apache-airflow
-pytest-cov
