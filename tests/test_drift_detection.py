@@ -1,6 +1,3 @@
-import os
-import sys
-
 import pytest
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.linalg import Vectors
@@ -8,10 +5,6 @@ from pyspark.sql import Row, SparkSession
 
 from src.monitoring.data_drift import calculate_statistics, compare_distributions
 from src.monitoring.model_drift import evaluate_model
-
-
-# Add the project root directory to sys.path
-sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 
 @pytest.fixture(scope="module")
