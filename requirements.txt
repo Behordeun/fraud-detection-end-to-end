@@ -1,29 +1,34 @@
 # Core Libraries
-pyspark         # Core PySpark library
-numpy           # For numerical computations
-pandas          # Data manipulation (if needed for external utilities)
-scikit-learn    # For additional ML tools like scaling (if needed)
-joblib          # For saving and loading encoders and scalers
-matplotlib      # For data visualization (if required in EDA notebooks)
-seaborn         # Advanced visualization library
-plotly          # Advanced visualization library
+pyspark==3.5.0         # Core PySpark library
+numpy==1.25.0          # For numerical computations
+pandas==2.1.1          # Data manipulation
+scikit-learn==1.3.0    # For ML tools
+joblib==1.4.0          # For saving and loading scalers
+matplotlib==3.8.0      # For data visualization
+seaborn==0.12.2        # Advanced visualization library
+plotly==5.16.1         # Interactive plots
 
 # MLOps and Experiment Tracking
-mlflow          # For experiment tracking
-dvc[s3]         # For data version control with MinIO (S3 compatibility)
-boto3           # AWS SDK for MinIO connection
+mlflow[sqlalchemy,postgres]>=2.6.0    # Experiment tracking with SQL and Postgres
+dvc[s3]==3.22.0                      # Data version control
+boto3==1.28.0                        # AWS SDK for S3/MinIO
 
 # Metadata Management
-openmetadata-ingestion     # For metadata management
-PyYAML                     # For reading configuration files (used in OpenMetadata)
+openmetadata-ingestion==0.14.0       # Metadata management
+PyYAML==6.0                          # For reading YAML files
 
 # Testing and Code Quality
-pytest  
-pytest-cov
-pytest-xdist        # For testing
-flake8              # For code linting
-autopep8            # For automatic PEP 8 formatting
-autoflake           # For removing unused imports
-isort               # For sorting imports
-black               # For code formatting
-apache-airflow
+pytest==8.3.4                        # For testing
+pytest-cov==4.0.0                    # For test coverage
+pytest-xdist==3.6.1                  # For parallel testing
+flake8==6.1.0                        # Code linting
+autopep8==2.0.3                      # Auto-formatting
+autoflake==2.3.2                     # Remove unused imports
+isort==5.12.0                        # Sort imports
+black==23.7.0                        # Code formatting
+
+# Workflow Management
+apache-airflow[crypto,postgres]>=2.6.2  # Airflow with Postgres and crypto extras
+apache-airflow-providers-docker==3.2.0  # Docker provider for Airflow
+apache-airflow-providers-http==4.1.0    # HTTP provider for Airflow
+apache-airflow-providers-amazon==8.2.0  # Amazon (AWS) provider for Airflow
