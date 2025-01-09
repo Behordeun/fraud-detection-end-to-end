@@ -14,8 +14,8 @@ dvc[s3]                        # Data version control
 boto3                          # AWS SDK for S3/MinIO
 
 # Metadata Management
-openmetadata-ingestion         # Metadata management
-PyYAML                         # For reading YAML files
+openmetadata-ingestion==1.4.8.1         # Metadata management
+PyYAML==6.0.2                           # For reading YAML files
 
 # Testing and Code Quality
 pytest                         # For testing
@@ -28,6 +28,7 @@ isort                          # Sort imports
 black                          # Code formatting
 
 # Workflow Management
+apache-airflow==2.10.4
 apache-airflow[crypto,postgres]  # Airflow with Postgres and crypto extras
 apache-airflow-providers-docker  # Docker provider for Airflow
 apache-airflow-providers-http    # HTTP provider for Airflow
