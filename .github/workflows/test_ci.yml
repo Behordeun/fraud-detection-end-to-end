@@ -42,6 +42,11 @@ jobs:
         pip install -r requirements.txt
         pip install "apache-airflow[crypto,postgres]" --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.6.2/constraints-3.11.txt"
 
+    - name: Debug Installed Versions
+      run: |
+        pytest --version
+        pip list | grep pluggy
+
     # Export PYTHONPATH
     - name: Set PYTHONPATH
       run: echo "PYTHONPATH=./src" >> $GITHUB_ENV
