@@ -33,3 +33,4 @@ data/processed/*.zip
 *.sh
 get-pip.py
 *.drawio
+*.bkp
