@@ -48,8 +48,10 @@ jobs:
         pip install -r requirements.txt
         pip install "apache-airflow[crypto,postgres]" --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.6.2/constraints-3.11.txt"
 
+    # Debug Installed Versions
     - name: Debug Installed Versions
       run: |
+        python --version
         pytest --version
         pip list | grep pluggy
 
@@ -57,11 +59,12 @@ jobs:
     - name: Set PYTHONPATH
       run: echo "PYTHONPATH=./src" >> $GITHUB_ENV
 
+    # Debug PYTHONPATH
     - name: Debug PYTHONPATH
       run: echo $PYTHONPATH
 
-    # Remove unused variables and imports
-    - name: Clean unused variables and imports
+    # Clean unused imports
+    - name: Remove unused variables and imports
       run: |
         autoflake --in-place --remove-unused-variables --remove-all-unused-imports -r src/ tests/
 
@@ -74,12 +77,12 @@ jobs:
       run: flake8 src/ tests/
 
     # Run tests with coverage
-    - name: Run tests
+    - name: Run tests with coverage
       run: |
         echo "Running tests with coverage..."
-        pytest -n auto --cov=src --cov-report=html tests/
+        pytest --cov=src --cov-report=html tests/
         echo "Tests completed."
-        ls -la  # Check if htmlcov directory was created
+        ls -la htmlcov  # Check if htmlcov directory was created
 
     # Upload coverage report
     - name: Upload coverage report
