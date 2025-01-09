@@ -41,6 +41,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install flake8 black autoflake pytest pytest-cov pytest-xdist
 
+    # Export PYTHONPATH
+    - name: Set PYTHONPATH
+      run: echo "PYTHONPATH=./src" >> $GITHUB_ENV
+
     # Remove unused variables and imports
     - name: Clean unused variables and imports
       run: |
@@ -56,8 +60,6 @@ jobs:
 
     # Run tests with coverage
     - name: Run tests
-      env:
-        PYTHONPATH: ./src
       run: |
         pytest -n auto --cov=src --cov-report=html tests/
 
