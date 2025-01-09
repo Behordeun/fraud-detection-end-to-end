@@ -1,12 +1,7 @@
 import subprocess
 
-from utils import (
-    check_data_quality,
-    generate_drift_report,
-    get_spark_session,
-    handle_error,
-    load_config,
-)
+from utils import (check_data_quality, generate_drift_report,
+                   get_spark_session, handle_error, load_config)
 
 
 def run_dvc_pipeline(config_path: str):
