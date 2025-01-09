@@ -1,5 +1,9 @@
 import pytest
 from pyspark.sql import SparkSession
+import sys
+import os
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
 from src.data_processing.preprocess import preprocess_data
 from src.data_processing.feature_engineering import add_derived_features
 
