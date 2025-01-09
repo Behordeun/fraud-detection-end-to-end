@@ -5,11 +5,12 @@ import pytest
 from pyspark.ml.classification import RandomForestClassifier
 from pyspark.sql import SparkSession
 
-# Add the src directory to the Python path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
-
 from src.models.evaluate import evaluate_model
 from src.models.train import train_model
+
+
+# Add the project root directory to sys.path
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 
 @pytest.fixture(scope="module")
