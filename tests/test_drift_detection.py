@@ -1,5 +1,8 @@
 import pytest
 from pyspark.sql import SparkSession
+from pyspark.ml.classification import LogisticRegression
+from pyspark.ml.linalg import Vectors
+from pyspark.sql import Row
 from src.monitoring.data_drift import calculate_statistics, compare_distributions
 from src.monitoring.model_drift import evaluate_model
 
@@ -31,6 +34,26 @@ def test_compare_distributions():
     assert drift_report["amount"]["drift_detected"] is True
 
 
-def test_model_drift_evaluation():
+def test_model_drift_evaluation(spark):
+    # Mock model
+    data = spark.createDataFrame(
+        [
+            (0.0, Vectors.dense([1.0, 2.0])),
+            (1.0, Vectors.dense([2.0, 3.0])),
+        ],
+        ["label", "features"],
+    )
+    lr = LogisticRegression(featuresCol="features", labelCol="label", maxIter=5)
+    model = lr.fit(data)
+
+    # Mock test data
+    test_data = spark.createDataFrame(
+        [
+            Row(label=0.0, features=Vectors.dense([1.0, 2.0])),
+            Row(label=1.0, features=Vectors.dense([2.0, 3.0])),
+        ]
+    )
+
+    # Evaluate model
     result = evaluate_model(model, test_data)
     assert result >= 0  # Example assertion for model drift evaluation
