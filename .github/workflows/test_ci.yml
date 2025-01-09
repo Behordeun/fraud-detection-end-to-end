@@ -8,6 +8,11 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write      # Required for uploading artifacts and deploying to GitHub Pages
+  pages: write         # Required for deploying to GitHub Pages
+  id-token: write      # Required for authentication in certain actions (e.g., deploy-pages)
+
 jobs:
   test:
     runs-on: ubuntu-latest
