@@ -11,7 +11,10 @@ plotly         # Interactive plots
 # MLOps and Experiment Tracking
 mlflow[sqlalchemy,postgres]    # Experiment tracking with SQL and Postgres
 dvc[s3]                        # Data version control
-boto3                          # AWS SDK for S3/MinIO
+boto3==1.35.93                 # AWS SDK for S3/MinIO
+botocore==1.35.93              # AWS SDK for S3/MinIO
+aiobotocore==2.17.0            # Async AWS SDK for S3/MinIO
+
 
 # Metadata Management
 openmetadata-ingestion==1.4.8.1         # Metadata management
