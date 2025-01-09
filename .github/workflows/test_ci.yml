@@ -46,6 +46,9 @@ jobs:
     - name: Set PYTHONPATH
       run: echo "PYTHONPATH=./src" >> $GITHUB_ENV
 
+    - name: Debug PYTHONPATH
+      run: echo $PYTHONPATH
+
     # Remove unused variables and imports
     - name: Clean unused variables and imports
       run: |
@@ -62,7 +65,10 @@ jobs:
     # Run tests with coverage
     - name: Run tests
       run: |
+        echo "Running tests with coverage..."
         pytest -n auto --cov=src --cov-report=html tests/
+        echo "Tests completed."
+        ls -la  # Check if htmlcov directory was created
 
     # Upload coverage report
     - name: Upload coverage report
