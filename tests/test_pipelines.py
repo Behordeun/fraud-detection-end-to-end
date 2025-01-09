@@ -1,4 +1,8 @@
 import pytest
+import sys
+import os
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
 from src.pipelines.dvc_pipeline import run_dvc_pipeline
 from src.pipelines.mlflow_pipeline import run_mlflow_pipeline
 
