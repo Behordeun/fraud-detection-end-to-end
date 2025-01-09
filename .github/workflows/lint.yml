@@ -1,0 +1,48 @@
+name: Lint Code
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:  # Allow manual runs
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+
+      # Install linters
+      - name: Install linters
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 black autoflake isort
+
+      # Run autoflake to clean up imports
+      - name: Remove unused imports
+        run: autoflake --in-place --remove-unused-variables --remove-all-unused-imports -r src/ tests/
+
+      # Run isort to sort imports
+      - name: Sort imports with isort
+        run: isort src/ tests/
+
+      # Run Black to format code
+      - name: Check code formatting with Black
+        run: black --check src/ tests/
+
+      # Run Flake8 for linting
+      - name: Lint code with Flake8
+        run: flake8 src/ tests/
