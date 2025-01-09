@@ -7,12 +7,13 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:  # Allow manual runs of the workflow
 
 permissions:
-  contents: write      # Required for uploading artifacts and deploying to GitHub Pages
-  pages: write         # Required for deploying to GitHub Pages
-  id-token: write      # Required for authentication in actions (e.g., deploy-pages)
-  security-events: write # Required for CodeQL analysis
+  contents: write
+  pages: write
+  id-token: write
+  security-events: write
 
 jobs:
   test:
@@ -140,6 +141,8 @@ jobs:
       uses: github/codeql-action/init@v2
       with:
         languages: python
+        # Optional: Uncomment this line if you have advanced configurations
+        # config-file: .github/codeql/codeql-config.yml
 
     # Checkout the repository
     - name: Checkout code
