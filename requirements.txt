@@ -25,3 +25,4 @@ autoflake            # For removing unused imports
 isort               # For sorting imports
 black               # For code formatting
 apache-airflow
+pytest-cov
