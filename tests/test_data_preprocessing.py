@@ -4,11 +4,12 @@ import sys
 import pytest
 from pyspark.sql import SparkSession
 
-# Add the src directory to the Python path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
-
 from src.data_processing.feature_engineering import add_derived_features
 from src.data_processing.preprocess import preprocess_data
+
+
+# Add the project root directory to sys.path
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 
 @pytest.fixture(scope="module")
