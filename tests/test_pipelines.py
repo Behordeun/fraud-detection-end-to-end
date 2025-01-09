@@ -1,14 +1,7 @@
-import os
-import sys
-
 import pytest
 
 from src.pipelines.dvc_pipeline import run_dvc_pipeline
 from src.pipelines.mlflow_pipeline import run_mlflow_pipeline
-
-
-# Add the project root directory to sys.path
-sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 
 @pytest.fixture
