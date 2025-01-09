@@ -3,7 +3,9 @@ import sys
 
 import pytest
 
+# Add the src directory to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
+
 from src.pipelines.dvc_pipeline import run_dvc_pipeline
 from src.pipelines.mlflow_pipeline import run_mlflow_pipeline
 
