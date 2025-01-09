@@ -1,16 +1,9 @@
-import os
-import sys
-
 import pytest
 from pyspark.ml.classification import RandomForestClassifier
 from pyspark.sql import SparkSession
 
 from src.models.evaluate import evaluate_model
 from src.models.train import train_model
-
-
-# Add the project root directory to sys.path
-sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 
 @pytest.fixture(scope="module")
