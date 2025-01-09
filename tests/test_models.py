@@ -1,12 +1,13 @@
-import pytest
-from pyspark.sql import SparkSession
-from pyspark.ml.classification import RandomForestClassifier
-import sys
 import os
+import sys
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
-from src.models.train import train_model
+import pytest
+from pyspark.ml.classification import RandomForestClassifier
+from pyspark.sql import SparkSession
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 from src.models.evaluate import evaluate_model
+from src.models.train import train_model
 
 
 @pytest.fixture(scope="module")
