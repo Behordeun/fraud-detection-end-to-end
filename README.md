@@ -8,13 +8,13 @@ This project demonstrates an end-to-end Machine Learning pipeline for Credit Car
 
 ## Table of Contents
 
-1. [Project Overview](#Project Overview)
+1. [Project Overview](#project-overview)
 2. [Features](#Features)
 3. [Architecture](#Architecture)
-4. [Setup Instructions](#Setup Instructions)
+4. [Setup Instructions](#Setup_Instructions)
 5. [Usage](#Usage)
-6. [Project Structure](#Project Structure)
-7. [Monitoring and Alerts](#Monitoring and Alerts)
+6. [Project Structure](#Project_Structure)
+7. [Monitoring and Alerts](#Monitoring_and_Alerts)
 8. [Troubleshooting](#Troubleshooting)
 9. [Contributing](#Contributing)
 
@@ -75,14 +75,13 @@ docker-compose up -d
 
 ### 4. Access Services
 
-
-| Service | URL | Notes |
-| ---------------------------------------------------------------------- | --- | --- |
-| MinIO Console |  http://localhost:9001  |  Manage raw and processed data.                                                                 |
-| Prometheus | http://localhost:9090  | Monitor metrics and alerts.                                                                  |
-| Grafana | http://localhost:3000 |  Visualize dashboards.
-| Airflow | http://localhost:8080 |  Orchestrate workflows.                                                                |
-| OpenMetadata |   http://localhost:8585 |  Manage metadata.               |                                                                  |
+| Service       | URL                   | Notes                          |
+| ------------- | --------------------- | ------------------------------ |
+| MinIO Console | http://localhost:9001 | Manage raw and processed data. |
+| Prometheus    | http://localhost:9090 | Monitor metrics and alerts.    |
+| Grafana       | http://localhost:3000 | Visualize dashboards.          |
+| Airflow       | http://localhost:8080 | Orchestrate workflows.         |
+| OpenMetadata  | http://localhost:8585 | Manage metadata.               |
 
 ---
 
@@ -119,49 +118,81 @@ dvc repro
 
 ## Project Structure
 
+```
 .
-├── Dockerfile                           # Dockerfile for containerization
-├── docker-compose.yml                   # Docker Compose setup for all services
-├── README.md                            # Project documentation
-├── airflow/                             # Airflow configuration and DAGs
-│   ├── airflow.cfg
-│   └── dags/
-│       └── fraud_detection_dag.py
-├── data/                                # Raw and processed datasets
-│   ├── raw/
-│   │   └── creditcard_2023.csv
-│   └── processed/
-├── notebooks/                           # Jupyter notebooks for experimentation
-│   ├── eda.ipynb
-│   ├── feature_engineering.ipynb
-│   └── baseline_model.ipynb
-├── openmetadata/                        # OpenMetadata configuration and schemas
-│   ├── config.yaml
-│   ├── metadata_pipeline.py
-│   └── schemas/
-│       ├── data_schema.yaml
-│       └── model_schema.yaml
-├── prometheus/                          # Prometheus configuration
-│   ├── prometheus.yml
-│   └── alert-rules.yml
-├── src/                                 # Source code for pipelines and utilities
-│   ├── data_preprocessing/
-│   │   ├── preprocessing.py
-│   │   └── feature_engineering.py
-│   ├── models/
-│   │   ├── train.py
-│   │   └── evaluate.py
-│   ├── monitoring/
-│   │   ├── data_drift.py
-│   │   └── model_drift.py
-│   ├── pipelines/
-│   │   ├── dvc_pipeline.py
-│   │   └── mlflow_pipeline.py
-│   └── utils.py
-└── tests/                               # Tests for all components
+├── Architecture.png
+├── Dockerfile
+├── README.md
+├── SECURITY.md
+├── Untitled Diagram.drawio
+├── airflow
+│   ├── airflow.cfg
+│   └── dags
+│       └── airflow_dvc_mlflow_dag.py
+├── config
+│   └── global_config.yml
+├── data
+│   ├── dvc.yml
+│   ├── processed
+│   └── raw
+│       └── creditcard_2023.csv
+├── docker-compose.yml
+├── generate_tree.sh
+├── get-pip.py
+├── k8s
+│   ├── airflow
+│   │   └── airflow-deployment.yaml
+│   ├── grafana
+│   │   └── grafana-deployment.yaml
+│   ├── minio
+│   │   └── minio-deployment.yaml
+│   ├── openmetadata
+│   │   └── openmetadata-deployment.yaml
+│   └── prometheus
+│       ├── prometheus-deployment.yaml
+│       └── prometheus.yml
+├── logs
+├── openmetadata
+│   ├── __init__.py
+│   ├── config.yaml
+│   ├── metadata_pipeline.py
+│   └── schemas
+│       ├── data_schema.yaml
+│       └── model_schema.yaml
+├── plugins
+├── project_structure.md
+├── pytest.ini
+├── requirements-2.txt
+├── requirements.txt
+├── src
+│   ├── __init__.py
+│   ├── data_preprocessing
+│   │   ├── __init__.py
+│   │   ├── feature_engineering.py
+│   │   └── preprocessing.py
+│   ├── models
+│   │   ├── __init__.py
+│   │   ├── evaluate.py
+│   │   ├── predict.py
+│   │   └── train.py
+│   ├── monitoring
+│   │   ├── __init__.py
+│   │   ├── data_drift.py
+│   │   └── model_drift.py
+│   ├── pipelines
+│   │   ├── __init__.py
+│   │   ├── dvc_pipeline.py
+│   │   ├── mlflow_pipeline.py
+│   │   └── pipeline_config.yml
+│   └── utils.py
+├── supervisord.conf
+└── tests
+    ├── conftest.py
     ├── test_data_preprocessing.py
+    ├── test_drift_detection.py
     ├── test_models.py
     └── test_pipelines.py
+```
 
 ## Monitoring and Alerts
 
