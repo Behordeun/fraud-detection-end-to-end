@@ -35,3 +35,4 @@ get-pip.py
 *.drawio
 *.bkp
 .coverage
+requirements-2.txt
