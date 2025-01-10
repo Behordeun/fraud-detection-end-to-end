@@ -34,3 +34,4 @@ data/processed/*.zip
 get-pip.py
 *.drawio
 *.bkp
+.coverage
