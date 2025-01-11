@@ -1,13 +1,11 @@
 import os
 from unittest.mock import MagicMock, patch
 
-import boto3
 import pytest
 from pyspark.sql import SparkSession
 
 from src.utils import (
     check_data_quality,
-    connect_to_minio,
     generate_drift_report,
     get_spark_session,
     handle_error,
