@@ -1,8 +1,7 @@
 import logging
 
 import pytest
-from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.types import DoubleType, StructField, StructType
+from pyspark.sql import SparkSession
 
 from src.data_preprocessing.feature_engineering import (
     add_derived_features,
