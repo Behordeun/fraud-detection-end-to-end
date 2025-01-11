@@ -1,8 +1,5 @@
-import logging
-
 import pytest
-from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import lit
+from pyspark.sql import SparkSession
 from pyspark.sql.types import DoubleType, StructField, StructType
 
 from src.data_preprocessing.preprocessing import (
