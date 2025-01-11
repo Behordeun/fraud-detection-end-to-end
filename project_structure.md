@@ -46,23 +46,25 @@
 ├── pytest.ini
 ├── requirements-2.txt
 ├── requirements.txt
+├── setup.py
 ├── src
 │   ├── __init__.py
 │   ├── data_preprocessing
-│   │   ├── __init__.py
 │   │   ├── feature_engineering.py
 │   │   └── preprocessing.py
+│   ├── fraud_detection.egg-info
+│   │   ├── PKG-INFO
+│   │   ├── SOURCES.txt
+│   │   ├── dependency_links.txt
+│   │   └── top_level.txt
 │   ├── models
-│   │   ├── __init__.py
 │   │   ├── evaluate.py
 │   │   ├── predict.py
 │   │   └── train.py
 │   ├── monitoring
-│   │   ├── __init__.py
 │   │   ├── data_drift.py
 │   │   └── model_drift.py
 │   ├── pipelines
-│   │   ├── __init__.py
 │   │   ├── dvc_pipeline.py
 │   │   ├── mlflow_pipeline.py
 │   │   └── pipeline_config.yml
@@ -75,5 +77,5 @@
     ├── test_models.py
     └── test_pipelines.py
 
-23 directories, 50 files
+24 directories, 51 files
 ```
