@@ -39,3 +39,5 @@ requirements-2.txt
 .dvc
 mlruns
 *.csv.dvc
+*.log
+logs/
