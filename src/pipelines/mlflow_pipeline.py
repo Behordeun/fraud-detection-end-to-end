@@ -4,7 +4,7 @@ from src.utils import (
     handle_error,
     load_config,
     log_metrics_to_mlflow,
-    setup_mlflow_experiment
+    setup_mlflow_experiment,
 )
 
 
