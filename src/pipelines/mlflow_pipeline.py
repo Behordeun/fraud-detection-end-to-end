@@ -1,7 +1,11 @@
 import subprocess
 
-from utils import (handle_error, load_config, log_metrics_to_mlflow,
-                   setup_mlflow_experiment)
+from src.utils import (
+    handle_error,
+    load_config,
+    log_metrics_to_mlflow,
+    setup_mlflow_experiment
+)
 
 
 def run_mlflow_pipeline(config_path: str):
