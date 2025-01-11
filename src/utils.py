@@ -7,7 +7,7 @@ import mlflow
 import pandas as pd
 import seaborn as sns
 import yaml
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import col, count
 
 
@@ -26,6 +26,15 @@ def setup_logging(log_file: str = "logs/project.log"):
     )
     logger = logging.getLogger()
     return logger
+
+
+def get_spark_session(app_name: str = "DefaultApp") -> SparkSession:
+    """
+    Create and return a Spark session.
+    :param app_name: Name of the Spark application.
+    :return: A SparkSession object.
+    """
+    return SparkSession.builder.appName(app_name).master("local[1]").getOrCreate()
 
 
 # Configuration Utilities
