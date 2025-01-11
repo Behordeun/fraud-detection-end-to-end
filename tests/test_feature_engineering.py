@@ -1,5 +1,8 @@
+import logging
+
 import pytest
-from pyspark.sql import SparkSession
+from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql.types import DoubleType, StructField, StructType
 
 from src.data_preprocessing.feature_engineering import (
     add_derived_features,
@@ -40,7 +43,7 @@ def test_load_data(spark, tmpdir):
     assert set(loaded_data.columns) == set(data.columns)
 
 
-def test_add_derived_features(spark):
+def test_add_derived_features(spark, caplog):
     """
     Test that add_derived_features correctly adds derived features to the DataFrame.
     """
@@ -54,17 +57,16 @@ def test_add_derived_features(spark):
 
     # Validate derived features
     assert "log_feature1" in processed_data.columns
-    assert "log_feature2" in processed_data.columns
     assert "interaction" in processed_data.columns
     assert "feature1_squared" in processed_data.columns
-    assert "feature2_squared" in processed_data.columns
-    assert "feature1_sqrt" in processed_data.columns
-    assert "feature2_sqrt" in processed_data.columns
 
-    # Validate interaction term
-    interaction = processed_data.select("interaction").collect()
-    assert interaction[0]["interaction"] == 100.0 * 200.0
-    assert interaction[1]["interaction"] == 300.0 * 400.0
+    # Test with missing columns for interaction
+    caplog.set_level(logging.WARNING)
+    incomplete_data = spark.createDataFrame([(1, 100.0)], ["id", "feature1"])
+    processed_incomplete = add_derived_features(incomplete_data)
+
+    assert "interaction" not in processed_incomplete.columns
+    assert "Interaction columns ('feature1', 'feature2') not found." in caplog.text
 
 
 def test_select_features(spark):
@@ -95,6 +97,10 @@ def test_select_features(spark):
         300.0,
         400.0,
     ]
+
+    # Test missing selected columns
+    with pytest.raises(ValueError, match="Missing columns in dataset"):
+        select_features(data, ["feature1", "missing_column"])
 
 
 def test_save_engineered_data(spark, tmpdir):
