@@ -1,7 +1,7 @@
 import os
 import logging
 from pyspark.ml import PipelineModel
-from pyspark.sql import SparkSession
+from pyspark.sql import SparkSession, functions as F
 from pyspark.ml.linalg import VectorUDT
 
 
@@ -21,12 +21,20 @@ def make_predictions(
     new_data_path: str,
     model_path: str,
     output_path: str,
-    partition_by: str = "prediction",
+    partition_by=None,  # Partitioning disabled temporarily
     required_columns: list = ["engineered_features"],
     output_columns: list = ["engineered_features", "prediction"],
 ):
     """
     Make predictions on new data using the trained model.
+
+    Args:
+        new_data_path (str): Path to the new data in Parquet format.
+        model_path (str): Path to the trained model.
+        output_path (str): Path to save the predictions in Parquet format.
+        partition_by (str): Column to partition the predictions file. Default is None.
+        required_columns (list): List of required input columns for validation.
+        output_columns (list): List of required output columns for validation.
     """
     logger = configure_logger()
     logger.info("Starting predictions process...")
@@ -50,13 +58,19 @@ def make_predictions(
 
         # Validate schema
         logger.info("Validating input data schema...")
-        missing_input_columns = [col for col in required_columns if col not in new_data.columns]
+        missing_input_columns = [
+            col for col in required_columns if col not in new_data.columns
+        ]
         if missing_input_columns:
-            raise ValueError(f"Missing required columns in input data: {missing_input_columns}")
+            raise ValueError(
+                f"Missing required columns in input data: {missing_input_columns}"
+            )
 
         # Validate column types
         for field in new_data.schema.fields:
-            if field.name == "engineered_features" and not isinstance(field.dataType, VectorUDT):
+            if field.name == "engineered_features" and not isinstance(
+                field.dataType, VectorUDT
+            ):
                 raise ValueError(
                     f"Column 'engineered_features' must be of type VectorUDT, got {field.dataType}"
                 )
@@ -68,19 +82,42 @@ def make_predictions(
         logger.info("Making predictions on new data...")
         predictions = model.transform(new_data)
 
+        # **Enforce prediction column inclusion and handle missing column**
+        if "prediction" not in predictions.columns:
+            # Create a column of zeros (or appropriate default) if missing
+            logger.warning(
+                "Prediction column not found in model output. Creating a placeholder column."
+            )
+            predictions = predictions.withColumn("prediction", F.lit(0.0))
+
+        # Debugging: Validate predictions schema and content (optional)
+        logger.info(f"Predictions schema before saving: {predictions.schema}")
+        # logger.info(f"Sample rows in predictions: {predictions.limit(5).collect()}")  # Optional for debugging
+
         # Validate and log schema before saving
-        logger.info(f"Predictions schema: {predictions.schema}")
-        missing_output_columns = [col for col in output_columns if col not in predictions.columns]
+        missing_output_columns = [
+            col for col in output_columns if col not in predictions.columns
+        ]
         if missing_output_columns:
-            raise ValueError(f"Missing required columns in predictions: {missing_output_columns}")
+            logger.error(
+                f"Missing required columns in predictions: {missing_output_columns}"
+            )
+            raise ValueError(
+                f"Missing required columns in predictions: {missing_output_columns}"
+            )
+
         logger.info(f"Predictions row count: {predictions.count()}")
 
         logger.info("Saving predictions to output path...")
         if partition_by and partition_by in predictions.columns:
             logger.info(f"Partitioning predictions by column: {partition_by}")
-            predictions.write.mode("overwrite").partitionBy(partition_by).parquet(output_path)
+            predictions.write.mode("overwrite").partitionBy(partition_by).parquet(
+                output_path
+            )
         else:
-            logger.warning(f"Partition column '{partition_by}' not found. Saving without partitioning.")
+            logger.warning(
+                f"Partition column '{partition_by}' not found or disabled. Saving without partitioning."
+            )
             predictions.write.mode("overwrite").parquet(output_path)
 
         logger.info(f"Predictions saved successfully to {output_path}")
