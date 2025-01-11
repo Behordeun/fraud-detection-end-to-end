@@ -49,4 +49,4 @@ jobs:
       # Run tests
       - name: Run tests
         run: |
-          pytest tests/
+          PYTHONPATH=$(pwd)/src pytest
