@@ -36,3 +36,5 @@ get-pip.py
 *.bkp
 .coverage
 requirements-2.txt
+.dvc
+mlruns
