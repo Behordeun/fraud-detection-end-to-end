@@ -38,3 +38,4 @@ get-pip.py
 requirements-2.txt
 .dvc
 mlruns
+*.csv.dvc
