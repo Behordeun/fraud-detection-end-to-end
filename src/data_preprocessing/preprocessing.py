@@ -42,9 +42,14 @@ def handle_missing_values(df: DataFrame, target_column: str) -> DataFrame:
     # Handle missing values for categorical columns
     categorical_cols = [field for field, dtype in df.dtypes if dtype == "string"]
     for col_name in categorical_cols:
-        mode_value = (
-            df.groupBy(col_name).count().orderBy("count", ascending=False).first()[0]
+        mode_row = (
+            df.groupBy(col_name).count().orderBy("count", ascending=False).first()
         )
+        if mode_row:
+            mode_value = mode_row[0] if mode_row[0] is not None else "Unknown"
+        else:
+            mode_value = "Unknown"  # Fallback value
+        print(f"Calculated mode for column '{col_name}': {mode_value}")
         df = df.fillna({col_name: mode_value})
         print(
             f"Replaced missing values in categorical column '{col_name}' with mode: {mode_value}"
