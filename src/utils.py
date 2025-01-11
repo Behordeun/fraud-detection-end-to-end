@@ -17,7 +17,15 @@ def setup_logging(log_file: str = "logs/project.log"):
     Set up logging for the project.
     :param log_file: Path to the log file.
     """
-    os.makedirs(os.path.dirname(log_file), exist_ok=True)
+    log_dir = os.path.dirname(log_file)
+    if log_dir:  # Create directories if a directory path is specified
+        os.makedirs(log_dir, exist_ok=True)
+
+    # Remove existing handlers to avoid duplicate logs
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+
+    # Configure logging
     logging.basicConfig(
         filename=log_file,
         filemode="a",
