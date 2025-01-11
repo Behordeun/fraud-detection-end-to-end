@@ -1,34 +1,121 @@
 import pytest
 from pyspark.sql import SparkSession
 
-from src.data_processing.feature_engineering import add_derived_features
-from src.data_processing.preprocess import preprocess_data
+from src.data_preprocessing.preprocessing import (
+    handle_missing_values,
+    load_data,
+    save_preprocessed_data,
+    scale_features,
+    split_data,
+)
 
 
+# Fixture for creating a Spark session
 @pytest.fixture(scope="module")
 def spark():
-    return SparkSession.builder.appName("TestSpark").getOrCreate()
-
-
-def test_preprocess_data(spark):
-    # Sample raw data
-    raw_data = spark.createDataFrame(
-        [(1, 200.0, None), (2, None, 1.0), (3, 300.0, 0.0)], ["id", "amount", "label"]
+    return (
+        SparkSession.builder.appName("TestPreprocessing")
+        .master("local[1]")
+        .getOrCreate()
     )
 
-    processed_data = preprocess_data(raw_data)
 
-    # Validate that missing values are handled
-    assert processed_data.filter("amount is NULL").count() == 0
-    assert processed_data.filter("label is NULL").count() == 0
+def test_handle_missing_values(spark):
+    """
+    Test that handle_missing_values replaces missing values with appropriate values.
+    """
+    # Sample data
+    data = spark.createDataFrame(
+        [(1, 200.0, None), (2, None, "B"), (3, 300.0, None)],
+        ["id", "amount", "category"],
+    )
+
+    # Call the function
+    processed_data = handle_missing_values(data, target_column="id")
+
+    # Validate missing value handling
+    assert processed_data.filter("amount IS NULL").count() == 0
+    assert processed_data.filter("category IS NULL").count() == 0
 
 
-def test_add_derived_features(spark):
-    # Sample processed data
-    processed_data = spark.createDataFrame([(1, 200.0), (2, 300.0)], ["id", "amount"])
+def test_load_data(spark, tmpdir):
+    """
+    Test that load_data correctly loads data from a CSV file.
+    """
+    # Create sample data
+    csv_content = "id,category\n1,A\n2,B\n3,C"
+    input_path = tmpdir.join("input_data.csv")
+    input_path.write(csv_content)
 
-    derived_data = add_derived_features(processed_data)
+    # Load data using the load_data function
+    loaded_data = load_data(str(input_path))
 
-    # Validate derived features
-    assert "log_amount" in derived_data.columns
-    assert "amount_squared" in derived_data.columns
+    # Validate the schema and content
+    assert set(loaded_data.columns) == {"id", "category"}  # Check column names
+    assert loaded_data.count() == 3  # Check row count
+
+    # Validate data content
+    data_content = loaded_data.collect()
+    expected_content = [(1, "A"), (2, "B"), (3, "C")]
+    assert [(row.id, row.category) for row in data_content] == expected_content
+
+
+def test_scale_features(spark):
+    """
+    Test that scale_features scales numerical columns correctly.
+    """
+    # Sample data
+    data = spark.createDataFrame(
+        [(1, 100.0, 200.0), (2, 150.0, 300.0)], ["id", "feature1", "feature2"]
+    )
+
+    # Call the function
+    scaled_data = scale_features(data, numerical_columns=["feature1", "feature2"])
+
+    # Validate scaled features
+    assert "scaled_features" in scaled_data.columns
+    assert scaled_data.select("scaled_features").count() == data.count()
+
+
+def test_split_data(spark):
+    """
+    Test that split_data splits the dataset correctly.
+    """
+    # Sample data
+    data = spark.createDataFrame(
+        [(1, 200.0), (2, 300.0), (3, 400.0), (4, 500.0)], ["id", "amount"]
+    )
+
+    # Call the function
+    train_data, test_data = split_data(data, test_size=0.5, seed=42)
+
+    # Validate data split
+    assert train_data.count() + test_data.count() == data.count()
+    assert train_data.count() > 0
+    assert test_data.count() > 0
+
+
+def test_save_preprocessed_data(spark, tmp_path):
+    """
+    Test that save_preprocessed_data writes the preprocessed data correctly.
+    """
+    # Sample data
+    train_data = spark.createDataFrame([(1, 200.0), (2, 300.0)], ["id", "amount"])
+    test_data = spark.createDataFrame([(3, 400.0), (4, 500.0)], ["id", "amount"])
+
+    # Temporary output path
+    output_dir = tmp_path / "processed_data"
+
+    # Call the function
+    save_preprocessed_data(train_data, test_data, str(output_dir))
+
+    # Validate saved files
+    assert (output_dir / "train").exists()
+    assert (output_dir / "test").exists()
+
+    # Reload and validate content
+    loaded_train_data = spark.read.parquet(str(output_dir / "train"))
+    loaded_test_data = spark.read.parquet(str(output_dir / "test"))
+
+    assert loaded_train_data.count() == train_data.count()
+    assert loaded_test_data.count() == test_data.count()
