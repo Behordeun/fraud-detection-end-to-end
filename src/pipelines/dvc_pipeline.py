@@ -83,7 +83,6 @@ def run_dvc_pipeline(config_path: str):
 
 
 if __name__ == "__main__":
-    CONFIG_PATH = (
-        "src/pipelines/pipeline_config.yaml"  # Adjust for your directory structure
-    )
+    # Use the local pipeline_config.yml directly
+    CONFIG_PATH = "pipeline_config.yml"
     run_dvc_pipeline(CONFIG_PATH)
