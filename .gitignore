@@ -25,10 +25,10 @@ __pycache__
 .env.development
 .env.test
 .env.production
-data/raw/*.csv
-data/processed/*.csv
-data/raw/*.zip
-data/processed/*.zip
+data/raw/*
+data/processed/*
+data/new_data/*
+data/predictions/*
 *.ipynb
 *.sh
 get-pip.py
@@ -41,3 +41,4 @@ mlruns
 *.csv.dvc
 *.log
 logs/
+models/*
