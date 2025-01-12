@@ -128,7 +128,9 @@ def set_features_and_target(df: DataFrame, target_column: str) -> DataFrame:
     return df
 
 
-def split_data_with_reserve(df: DataFrame, test_size: float = 0.3, reserve_size: float = 0.1, seed: int = 42):
+def split_data_with_reserve(
+    df: DataFrame, test_size: float = 0.3, reserve_size: float = 0.1, seed: int = 42
+):
     """
     Split the dataset into training, testing, and reserve sets.
     """
@@ -147,14 +149,18 @@ def split_data_with_reserve(df: DataFrame, test_size: float = 0.3, reserve_size:
     return train_df, test_df, reserve_df
 
 
-def save_preprocessed_data(train_df: DataFrame, test_df: DataFrame, reserve_df: DataFrame, output_dir: str):
+def save_preprocessed_data(
+    train_df: DataFrame, test_df: DataFrame, reserve_df: DataFrame, output_dir: str
+):
     """
     Save the preprocessed data to Parquet files.
     """
     print(f"Saving preprocessed data to {output_dir}...")
     train_df.write.mode("overwrite").parquet(f"{output_dir}/train")
     test_df.write.mode("overwrite").parquet(f"{output_dir}/test")
-    reserve_df.write.mode("overwrite").parquet(f"{output_dir}/new_data")  # Excludes target variable
+    reserve_df.write.mode("overwrite").parquet(
+        f"{output_dir}/new_data"
+    )  # Excludes target variable
     print("Preprocessed data saved.")
 
 
