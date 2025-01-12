@@ -1,22 +1,27 @@
-metadataServerConfig:
-  apiEndpoint: http://localhost:8585/api # OpenMetadata API endpoint
-  authProvider: no-auth # Authentication type (use 'basic' for credentials)
-  enableVersionValidation: false # Skip version validation if necessary
-
-pipelineService:
-  name: fraud-detection-mlops # Name of your service in OpenMetadata
-  type: airflow # Workflow orchestrator type (e.g., Airflow)
-  airflowConfig:
-    # Airflow-specific settings
-    airflowEndpoint: http://localhost:8080
-
-storageService:
-  name: fraud-detection-minio # Name of the MinIO service
-  type: s3 # Use S3-compatible APIs
-  connection:
+source:
+  type: s3
+  serviceName: fraud-detection-minio
+  serviceConnection:
     config:
+      type: S3
+      bucketName: fraud-detection-data
       awsConfig:
-        awsAccessKeyId: minioadmin # MinIO Access Key
-        awsSecretAccessKey: minioadmin # MinIO Secret Key
-        awsRegion: us-east-1 # Default region
-        endpointURL: http://localhost:9000 # MinIO endpoint
+        awsAccessKeyId: minioadmin
+        awsSecretAccessKey: minioadmin
+        endpointURL: http://localhost:9000
+workflowConfig:
+  loggerLevel: INFO
+  openMetadataServerConfig:
+    hostPort: http://localhost:8585
+    authProvider: no-auth
+metadataServerConfig:
+  apiEndpoint: http://localhost:8585/api
+  authProvider: no-auth
+pipelineService:
+  name: fraud-detection-mlops
+  type: airflow
+  airflowConfig:
+    airflowEndpoint: http://localhost:8080
+storageService:
+  name: fraud-detection-minio
+  type: s3
