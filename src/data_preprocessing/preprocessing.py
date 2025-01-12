@@ -61,7 +61,7 @@ def handle_missing_values(df: DataFrame, target_column: str) -> DataFrame:
     return df
 
 
-def scale_amount_column(df: DataFrame) -> DataFrame:
+def scale_features(df: DataFrame) -> DataFrame:
     """
     Scale the 'Amount' column using StandardScaler and overwrite it with the scaled scalar values.
     """
@@ -180,7 +180,7 @@ if __name__ == "__main__":
     data = handle_missing_values(data, TARGET_COLUMN)
 
     # Scale the 'Amount' column
-    data = scale_amount_column(data)
+    data = scale_features(data)
 
     # Ensure the 'Class' column is retained in the processed data
     if TARGET_COLUMN not in data.columns:
