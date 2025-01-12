@@ -1,6 +1,7 @@
 from pyspark.ml.feature import StandardScaler, VectorAssembler
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import lit, when
+from pyspark.sql.functions import col, lit, udf, when
+from pyspark.sql.types import DoubleType
 
 
 def load_data(file_path: str) -> DataFrame:
@@ -11,7 +12,8 @@ def load_data(file_path: str) -> DataFrame:
 
     print(f"Loading data from {file_path}...")
     df = spark.read.csv(file_path, header=True, inferSchema=True)
-    print(f"Data loaded with schema: {df.printSchema()}")
+    print("Data loaded with schema:")
+    df.printSchema()
     return df
 
 
@@ -59,19 +61,71 @@ def handle_missing_values(df: DataFrame, target_column: str) -> DataFrame:
     return df
 
 
-def scale_features(df: DataFrame, numerical_columns: list) -> DataFrame:
+def scale_amount_column(df: DataFrame) -> DataFrame:
     """
-    Scale numerical features using StandardScaler.
+    Scale the 'Amount' column using StandardScaler and overwrite it with the scaled scalar values.
     """
-    print("Scaling features...")
-    assembler = VectorAssembler(inputCols=numerical_columns, outputCol="features")
-    scaler = StandardScaler(inputCol="features", outputCol="scaled_features")
+    print("Scaling the 'Amount' column...")
 
-    # Assemble and scale features
-    assembled_df = assembler.transform(df)
-    scaled_df = scaler.fit(assembled_df).transform(assembled_df)
-    print("Features scaled.")
-    return scaled_df
+    # Assemble the Amount column into a feature vector
+    assembler = VectorAssembler(inputCols=["Amount"], outputCol="Amount_feature")
+    df = assembler.transform(df)
+
+    # Apply StandardScaler to the Amount feature
+    scaler = StandardScaler(
+        inputCol="Amount_feature",
+        outputCol="scaled_Amount",
+        withMean=True,
+        withStd=True,
+    )
+    scaler_model = scaler.fit(df)
+    df = scaler_model.transform(df)
+
+    # Extract the first (and only) value from the DenseVector using a UDF
+    def extract_scalar(value):
+        return float(value[0])  # Extract the first element from the vector
+
+    extract_scalar_udf = udf(extract_scalar, DoubleType())
+    df = df.withColumn("Amount", extract_scalar_udf(col("scaled_Amount")))
+
+    # Drop the temporary columns
+    df = df.drop("Amount_feature", "scaled_Amount")
+    print("Scaled 'Amount' column converted to scalar and updated the dataset.")
+
+    return df
+
+
+def drop_unnecessary_columns(df: DataFrame) -> DataFrame:
+    """
+    Drop columns that are not useful for modeling (e.g., 'id').
+    """
+    columns_to_drop = ["id"]  # Add any other unnecessary columns here if needed
+    print(f"Dropping unnecessary columns: {columns_to_drop}")
+    for col in columns_to_drop:
+        if col in df.columns:
+            df = df.drop(col)
+    print("Unnecessary columns dropped.")
+    return df
+
+
+def set_features_and_target(df: DataFrame, target_column: str) -> DataFrame:
+    """
+    Add 'features' column while retaining the original variables in the schema.
+    """
+    print("Setting feature variables and target variable...")
+
+    # All columns except the target column are features
+    feature_columns = [col for col in df.columns if col != target_column]
+
+    print(f"Feature columns: {feature_columns}")
+    print(f"Target column: {target_column}")
+
+    # Use VectorAssembler to combine feature variables into a single feature vector
+    assembler = VectorAssembler(inputCols=feature_columns, outputCol="features")
+    df = assembler.transform(df)
+
+    print("Features column added to the dataset while retaining the original columns.")
+    return df
 
 
 def split_data(df: DataFrame, test_size: float = 0.3, seed: int = 42):
@@ -98,23 +152,30 @@ def save_preprocessed_data(train_df: DataFrame, test_df: DataFrame, output_dir: 
 
 if __name__ == "__main__":
     # Example workflow
-    DATA_PATH = "data/raw/creditcard.csv"
+    DATA_PATH = "data/raw/creditcard_2023.csv"
     TARGET_COLUMN = "Class"  # Update this with the correct target column name
     PROCESSED_DIR = "data/processed"
 
     # Load data
     data = load_data(DATA_PATH)
 
+    # Drop unnecessary columns
+    data = drop_unnecessary_columns(data)
+
     # Handle missing values
     data = handle_missing_values(data, TARGET_COLUMN)
 
-    # Scale numerical features
-    numerical_features = [
-        field
-        for field, dtype in data.dtypes
-        if dtype in ["int", "double"] and field != TARGET_COLUMN
-    ]
-    data = scale_features(data, numerical_features)
+    # Scale the 'Amount' column
+    data = scale_amount_column(data)
+
+    # Ensure the 'Class' column is retained in the processed data
+    if TARGET_COLUMN not in data.columns:
+        raise ValueError(
+            f"Target column '{TARGET_COLUMN}' is missing from the processed dataset!"
+        )
+
+    # Add 'features' column while retaining original variables
+    data = set_features_and_target(data, TARGET_COLUMN)
 
     # Split data into train and test sets
     train_data, test_data = split_data(data)
