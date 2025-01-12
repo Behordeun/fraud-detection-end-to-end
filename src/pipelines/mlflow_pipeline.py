@@ -1,4 +1,9 @@
+import os
 import subprocess
+import sys
+
+# Add the 'src' directory to the Python path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.utils import (
     handle_error,
