@@ -1,7 +1,8 @@
 import logging
 import os
-
+import mlflow
 from pyspark.ml import PipelineModel
+from pyspark.ml.classification import RandomForestClassificationModel
 from pyspark.ml.linalg import VectorUDT
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
@@ -24,11 +25,11 @@ def make_predictions(
     model_path: str,
     output_path: str,
     partition_by=None,  # Partitioning disabled temporarily
-    required_columns: list = ["engineered_features"],
-    output_columns: list = ["engineered_features", "prediction"],
+    required_columns: list = ["features"],
+    output_columns: list = ["features", "prediction"],
 ):
     """
-    Make predictions on new data using the trained model.
+    Make predictions on new data using the trained model and log results to MLflow.
 
     Args:
         new_data_path (str): Path to the new data in Parquet format.
@@ -70,46 +71,54 @@ def make_predictions(
 
         # Validate column types
         for field in new_data.schema.fields:
-            if field.name == "engineered_features" and not isinstance(
-                field.dataType, VectorUDT
-            ):
+            if field.name == "features" and not isinstance(field.dataType, VectorUDT):
                 raise ValueError(
-                    f"Column 'engineered_features' must be of type VectorUDT, got {field.dataType}"
+                    f"Column 'features' must be of type VectorUDT, got {field.dataType}"
                 )
         logger.info("Input data schema validation passed.")
 
+        # Load the trained model
         logger.info("Loading the trained model...")
-        model = PipelineModel.load(model_path)
+        try:
+            model = PipelineModel.load(model_path)
+            logger.info("Successfully loaded PipelineModel.")
+        except Exception as e:
+            logger.warning(
+                f"Failed to load PipelineModel: {e}. Attempting to load RandomForestClassificationModel."
+            )
+            model = RandomForestClassificationModel.load(model_path)
+            logger.info("Successfully loaded RandomForestClassificationModel.")
 
+        # Make predictions
         logger.info("Making predictions on new data...")
         predictions = model.transform(new_data)
 
-        # **Enforce prediction column inclusion and handle missing column**
+        # Ensure the prediction column is included
         if "prediction" not in predictions.columns:
-            # Create a column of zeros (or appropriate default) if missing
             logger.warning(
                 "Prediction column not found in model output. Creating a placeholder column."
             )
             predictions = predictions.withColumn("prediction", F.lit(0.0))
 
-        # Debugging: Validate predictions schema and content (optional)
-        logger.info(f"Predictions schema before saving: {predictions.schema}")
-        # logger.info(f"Sample rows in predictions: {predictions.limit(5).collect()}")  # Optional for debugging
+        # Log class distribution
+        class_distribution = (
+            predictions.groupBy("prediction").count().toPandas().to_dict(orient="list")
+        )
+        logger.info(f"Class distribution: {class_distribution}")
 
-        # Validate and log schema before saving
-        missing_output_columns = [
-            col for col in output_columns if col not in predictions.columns
-        ]
-        if missing_output_columns:
-            logger.error(
-                f"Missing required columns in predictions: {missing_output_columns}"
-            )
-            raise ValueError(
-                f"Missing required columns in predictions: {missing_output_columns}"
-            )
+        # Log predictions with MLflow
+        with mlflow.start_run():
+            mlflow.log_param("Model_Path", model_path)
+            mlflow.log_param("New_Data_Path", new_data_path)
+            mlflow.log_param("Output_Path", output_path)
 
-        logger.info(f"Predictions row count: {predictions.count()}")
+            # Log class distribution as a metric
+            for label, count in zip(class_distribution["prediction"], class_distribution["count"]):
+                mlflow.log_metric(f"Class_{int(label)}_Count", count)
 
+            logger.info("Prediction details logged to MLflow.")
+
+        # Save predictions
         logger.info("Saving predictions to output path...")
         if partition_by and partition_by in predictions.columns:
             logger.info(f"Partitioning predictions by column: {partition_by}")
