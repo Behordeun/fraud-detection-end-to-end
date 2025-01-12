@@ -128,25 +128,33 @@ def set_features_and_target(df: DataFrame, target_column: str) -> DataFrame:
     return df
 
 
-def split_data(df: DataFrame, test_size: float = 0.3, seed: int = 42):
+def split_data_with_reserve(df: DataFrame, test_size: float = 0.3, reserve_size: float = 0.1, seed: int = 42):
     """
-    Split the dataset into training and testing sets.
+    Split the dataset into training, testing, and reserve sets.
     """
-    print("Splitting data into training and testing sets...")
-    train_df, test_df = df.randomSplit([1 - test_size, test_size], seed=seed)
-    print(
-        f"Data split complete. Training data: {train_df.count()}, Testing data: {test_df.count()}"
+    print("Splitting data into training, testing, and reserve sets...")
+    train_df, test_df, reserve_df = df.randomSplit(
+        [1 - test_size - reserve_size, test_size, reserve_size], seed=seed
     )
-    return train_df, test_df
+
+    # Remove the target variable from reserve data
+    reserve_df = reserve_df.drop("Class")
+
+    print(
+        f"Data split complete. Training data: {train_df.count()}, "
+        f"Testing data: {test_df.count()}, Reserve data: {reserve_df.count()}"
+    )
+    return train_df, test_df, reserve_df
 
 
-def save_preprocessed_data(train_df: DataFrame, test_df: DataFrame, output_dir: str):
+def save_preprocessed_data(train_df: DataFrame, test_df: DataFrame, reserve_df: DataFrame, output_dir: str):
     """
     Save the preprocessed data to Parquet files.
     """
     print(f"Saving preprocessed data to {output_dir}...")
     train_df.write.mode("overwrite").parquet(f"{output_dir}/train")
     test_df.write.mode("overwrite").parquet(f"{output_dir}/test")
+    reserve_df.write.mode("overwrite").parquet(f"{output_dir}/new_data")  # Excludes target variable
     print("Preprocessed data saved.")
 
 
@@ -177,8 +185,8 @@ if __name__ == "__main__":
     # Add 'features' column while retaining original variables
     data = set_features_and_target(data, TARGET_COLUMN)
 
-    # Split data into train and test sets
-    train_data, test_data = split_data(data)
+    # Split data into train, test, and reserve sets
+    train_data, test_data, reserve_data = split_data_with_reserve(data)
 
     # Save preprocessed data
-    save_preprocessed_data(train_data, test_data, PROCESSED_DIR)
+    save_preprocessed_data(train_data, test_data, reserve_data, PROCESSED_DIR)
