@@ -52,7 +52,11 @@ def evaluate_model(test_data_path: str, model_path: str):
         fn = predictions.filter((col("Class") == 1) & (col("prediction") == 0)).count()
         precision = tp / (tp + fp) if (tp + fp) > 0 else 0
         recall = tp / (tp + fn) if (tp + fn) > 0 else 0
-        f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+        f1_score = (
+            2 * (precision * recall) / (precision + recall)
+            if (precision + recall) > 0
+            else 0
+        )
 
         mlflow.log_metric("Precision", precision)
         mlflow.log_metric("Recall", recall)
