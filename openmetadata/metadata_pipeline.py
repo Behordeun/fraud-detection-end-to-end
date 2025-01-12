@@ -1,7 +1,8 @@
-from metadata.ingestion.ometa.ometa_api import OpenMetadata
-from metadata.generated.schema.metadataIngestion.workflow import OpenMetadataWorkflowConfig
-from metadata.generated.schema.entity.services.connections.metadata.openMetadataConnection import OpenMetadataConnection
 import yaml
+from metadata.generated.schema.metadataIngestion.workflow import (
+    OpenMetadataWorkflowConfig,
+)
+from metadata.ingestion.ometa.ometa_api import OpenMetadata
 
 
 def load_config(config_path):
@@ -19,24 +20,24 @@ def create_openmetadata_client(config_path):
     """
     config = load_config(config_path)
     metadata_config = OpenMetadataWorkflowConfig.parse_obj(config)
-    return OpenMetadata(metadata_config.metadataServerConfig)
+    return OpenMetadata(metadata_config.workflowConfig.openMetadataServerConfig)
 
 
-def ingest_metadata(client, entity):
+def ingest_metadata(client, metadata):
     """
-    Ingest metadata for a specific entity (e.g., datasets, models).
+    Ingest metadata for a specific entity.
     """
-    client.ingest(entity)
-    print(f"Successfully ingested metadata for entity: {entity.name}")
+    client.ingest(metadata)
+    print(f"Successfully ingested metadata: {metadata['name']}")
 
 
 if __name__ == "__main__":
-    CONFIG_PATH = "openmetadata/config.yaml"
+    CONFIG_PATH = "config.yaml"
 
-    # Initialize OpenMetadata client
+    # Create the OpenMetadata client
     client = create_openmetadata_client(CONFIG_PATH)
 
-    # Example: Ingest metadata for a dataset in MinIO
+    # Example: Ingest dataset metadata
     dataset_metadata = {
         "name": "fraud_detection_data",
         "description": "Dataset for fraud detection stored in MinIO",
@@ -45,8 +46,7 @@ if __name__ == "__main__":
         "columns": [
             {"name": "id", "dataType": "INTEGER"},
             {"name": "amount", "dataType": "FLOAT"},
-            {"name": "label", "dataType": "BOOLEAN"}
-        ]
+            {"name": "label", "dataType": "BOOLEAN"},
+        ],
     }
-
     ingest_metadata(client, dataset_metadata)
