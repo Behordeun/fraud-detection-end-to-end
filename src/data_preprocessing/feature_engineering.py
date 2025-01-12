@@ -1,7 +1,8 @@
 import logging
+
 from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import col, lit, log, pow, sqrt, when
+from pyspark.sql.functions import col, isnan, lit, log, sqrt, when
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -26,6 +27,57 @@ def load_data(input_path: str) -> DataFrame:
         raise
 
 
+def handle_missing_values(df: DataFrame, threshold: float = 0.05) -> DataFrame:
+    """
+    Handle missing values in the dataset based on the percentage of missing observations.
+    - Replace NaNs with the median if missing > threshold.
+    - Drop rows if missing <= threshold.
+
+    Args:
+        df (DataFrame): Input DataFrame.
+        threshold (float): Threshold for percentage of missing observations (default is 5%).
+
+    Returns:
+        DataFrame: DataFrame with missing values handled.
+    """
+    print("Handling missing values...")
+
+    # Total number of rows in the dataset
+    total_rows = df.count()
+
+    for col_name in df.columns:
+        # Calculate the percentage of missing values
+        missing_count = df.filter(df[col_name].isNull() | isnan(df[col_name])).count()
+        missing_percentage = missing_count / total_rows
+
+        if missing_percentage > threshold:
+            # Replace NaNs with the median
+            print(
+                f"Column '{col_name}' has {missing_percentage:.2%} missing values. Replacing with median."
+            )
+            median_value = (
+                df.approxQuantile(col_name, [0.5], 0)[0]
+                if col_name in [c[0] for c in df.dtypes if c[1] in ["double", "int"]]
+                else None
+            )
+            if median_value is not None:
+                df = df.withColumn(
+                    col_name,
+                    when(
+                        df[col_name].isNull() | isnan(df[col_name]), lit(median_value)
+                    ).otherwise(df[col_name]),
+                )
+        elif missing_percentage > 0:
+            # Drop rows with NaNs if missing <= threshold
+            print(
+                f"Column '{col_name}' has {missing_percentage:.2%} missing values. Dropping rows."
+            )
+            df = df.filter(df[col_name].isNotNull())
+
+    print("Missing values handled.")
+    return df
+
+
 def add_derived_features(df: DataFrame) -> DataFrame:
     """
     Add new derived features to the dataset.
@@ -43,7 +95,9 @@ def add_derived_features(df: DataFrame) -> DataFrame:
             if col_name not in ["features", "scaled_features"]:
                 df = df.withColumn(
                     f"log_{col_name}",
-                    when(df[col_name] > 0, log(df[col_name])).otherwise(lit(0)),
+                    when(df[col_name] > 0, log(df[col_name])).otherwise(
+                        lit(0)
+                    ),  # Replace invalid values with 0
                 )
 
         # Check if interaction columns exist
@@ -52,10 +106,16 @@ def add_derived_features(df: DataFrame) -> DataFrame:
         else:
             logger.warning("Interaction columns ('feature1', 'feature2') not found.")
 
-        # Add polynomial features
+        # Add polynomial features and handle invalid values
         for col_name in numerical_cols:
-            df = df.withColumn(f"{col_name}_squared", pow(col(col_name), 2))
-            df = df.withColumn(f"{col_name}_sqrt", sqrt(col(col_name)))
+            df = df.withColumn(
+                f"{col_name}_squared",
+                when(df[col_name].isNotNull(), pow(col(col_name), 2)).otherwise(lit(0)),
+            )
+            df = df.withColumn(
+                f"{col_name}_sqrt",
+                when(df[col_name] >= 0, sqrt(col(col_name))).otherwise(lit(0)),
+            )
 
         logger.info("Derived features added successfully.")
         return df
@@ -109,6 +169,9 @@ if __name__ == "__main__":
     try:
         # Load preprocessed data
         data = load_data(INPUT_PATH)
+
+        # Handle missing values
+        data = handle_missing_values(data, threshold=0.05)
 
         # Add derived features
         data = add_derived_features(data)
