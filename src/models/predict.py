@@ -1,5 +1,6 @@
 import logging
 import os
+
 import mlflow
 from pyspark.ml import PipelineModel
 from pyspark.ml.classification import RandomForestClassificationModel
@@ -113,7 +114,9 @@ def make_predictions(
             mlflow.log_param("Output_Path", output_path)
 
             # Log class distribution as a metric
-            for label, count in zip(class_distribution["prediction"], class_distribution["count"]):
+            for label, count in zip(
+                class_distribution["prediction"], class_distribution["count"]
+            ):
                 mlflow.log_metric(f"Class_{int(label)}_Count", count)
 
             logger.info("Prediction details logged to MLflow.")
