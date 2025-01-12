@@ -11,12 +11,11 @@ def train_model(train_data_path: str, model_output_path: str):
     Train a machine learning model using PySpark and log it with MLflow.
     """
     # Create a Spark session
-    spark = (
-        SparkSession.builder.appName("CreditCardFraudTraining")
-        .config("spark.driver.memory", "4g")
-        .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+    spark = SparkSession.builder \
+        .appName("CreditCardFraudTraining") \
+        .config("spark.driver.memory", "4g") \
+        .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer") \
         .getOrCreate()
-    )
 
     print("Loading training data...")
     train_data = spark.read.parquet(train_data_path)
@@ -27,6 +26,9 @@ def train_model(train_data_path: str, model_output_path: str):
         feature_columns = [col for col in train_data.columns if col != "Class"]
         assembler = VectorAssembler(inputCols=feature_columns, outputCol="features")
         train_data = assembler.transform(train_data).select("features", "Class")
+
+    # Convert integer columns to double to prevent MLflow warnings
+    train_data = train_data.withColumn("Class", train_data["Class"].cast("double"))
 
     print("Defining the RandomForestClassifier...")
     rf = RandomForestClassifier(
@@ -43,12 +45,12 @@ def train_model(train_data_path: str, model_output_path: str):
     # Log the model with MLflow
     print("Logging the model with MLflow...")
     with mlflow.start_run():
-        # Convert DenseVector in the input example to a JSON-serializable format
+        # Create an input example for MLflow
         input_example = train_data.limit(1).toPandas()
         input_example["features"] = input_example["features"].apply(lambda x: list(x))
 
         # Infer the model's input and output signature
-        signature = infer_signature(train_data.limit(10).toPandas(), input_example)
+        signature = infer_signature(train_data.toPandas(), input_example)
 
         # Log the model to MLflow
         mlflow.spark.log_model(
