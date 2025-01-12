@@ -1,3 +1,4 @@
+---
 name: fraud_detection_model
 description: "Random Forest model for fraud detection."
 algorithm: RandomForestClassifier
@@ -5,7 +6,7 @@ owner:
   type: user
   id: admin
 service:
-  type: mlflow # Integration with MLflow service
+  type: mlflow
   id: fraud-detection-mlflow
 hyperparameters:
   numTrees: 100
