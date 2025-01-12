@@ -1,9 +1,9 @@
 import mlflow
 import mlflow.spark
-from pyspark.ml.classification import RandomForestClassifier
-from pyspark.sql import SparkSession
-from pyspark.ml.feature import VectorAssembler
 from mlflow.models.signature import infer_signature
+from pyspark.ml.classification import RandomForestClassifier
+from pyspark.ml.feature import VectorAssembler
+from pyspark.sql import SparkSession
 
 
 def train_model(train_data_path: str, model_output_path: str):
@@ -11,11 +11,12 @@ def train_model(train_data_path: str, model_output_path: str):
     Train a machine learning model using PySpark and log it with MLflow.
     """
     # Create a Spark session
-    spark = SparkSession.builder \
-        .appName("CreditCardFraudTraining") \
-        .config("spark.driver.memory", "4g") \
-        .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer") \
+    spark = (
+        SparkSession.builder.appName("CreditCardFraudTraining")
+        .config("spark.driver.memory", "4g")
+        .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
         .getOrCreate()
+    )
 
     print("Loading training data...")
     train_data = spark.read.parquet(train_data_path)
