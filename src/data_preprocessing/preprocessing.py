@@ -128,7 +128,7 @@ def set_features_and_target(df: DataFrame, target_column: str) -> DataFrame:
     return df
 
 
-def split_data_with_reserve(
+def split_data(
     df: DataFrame, test_size: float = 0.3, reserve_size: float = 0.1, seed: int = 42
 ):
     """
@@ -192,7 +192,7 @@ if __name__ == "__main__":
     data = set_features_and_target(data, TARGET_COLUMN)
 
     # Split data into train, test, and reserve sets
-    train_data, test_data, reserve_data = split_data_with_reserve(data)
+    train_data, test_data, reserve_data = split_data(data)
 
     # Save preprocessed data
     save_preprocessed_data(train_data, test_data, reserve_data, PROCESSED_DIR)
