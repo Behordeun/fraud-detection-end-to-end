@@ -1,8 +1,10 @@
-import os
 import logging
+import os
+
 from pyspark.ml import PipelineModel
-from pyspark.sql import SparkSession, functions as F
 from pyspark.ml.linalg import VectorUDT
+from pyspark.sql import SparkSession
+from pyspark.sql import functions as F
 
 
 def configure_logger():
