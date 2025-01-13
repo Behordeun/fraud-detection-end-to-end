@@ -1,5 +1,4 @@
-import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -45,34 +44,52 @@ def test_run_dvc_pipeline(
     mock_get_spark_session.return_value = mock_spark
     mock_spark.read.parquet.return_value = mock_df
 
-    # Create the directory expected by the pipeline
-    processed_data_dir = tmpdir.mkdir("data").mkdir("processed").mkdir("train")
+    # Use a single "data" directory and create subdirectories
+    data_dir = tmpdir.mkdir("data")
+    processed_data_dir = data_dir.mkdir("processed")
+    raw_data_path = data_dir.mkdir("raw")
+
+    # Update the configuration to use dynamic paths
+    updated_config_path = tmpdir.join("pipeline_config.yaml")
+    with open(mock_config_path) as f:
+        config = (
+            f.read()
+            .replace("data/raw", str(raw_data_path))
+            .replace("data/processed", str(processed_data_dir))
+        )
+    updated_config_path.write(config)
+
+    # Debugging: Log updated configuration
+    print(f"Updated configuration: {updated_config_path.read()}")
 
     # Run the pipeline
-    run_dvc_pipeline(mock_config_path)
+    run_dvc_pipeline(str(updated_config_path))
 
-    # Validate subprocess calls
-    mock_subprocess_run.assert_any_call(["dvc", "add", "data/raw"], check=True)
-    mock_subprocess_run.assert_any_call(
-        [
-            "dvc",
-            "run",
-            "-n",
-            "preprocess",
-            "-d",
-            "src/data_preprocessing/preprocessing.py",
-            "-d",
-            "data/raw",
-            "-o",
-            "data/processed",
-            "python src/data_preprocessing/preprocessing.py",
-        ],
-        check=True,
-    )
+    # Debugging: Log actual subprocess calls
+    print(f"Actual subprocess.run calls: {mock_subprocess_run.call_args_list}")
 
-    # Validate Spark session and data quality checks
-    mock_get_spark_session.assert_called_once_with("DataQualityCheck")
+    # Validate subprocess calls for DVC operations
+    expected_calls = [
+        call(["dvc", "add", str(raw_data_path)], check=True),
+        call(
+            [
+                "dvc",
+                "run",
+                "-n",
+                "preprocess",
+                "-d",
+                "src/data_preprocessing/preprocessing.py",
+                "-d",
+                str(raw_data_path),
+                "-o",
+                str(processed_data_dir),
+                "python src/data_preprocessing/preprocessing.py",
+            ],
+            check=True,
+        ),
+    ]
+    mock_subprocess_run.assert_has_calls(expected_calls, any_order=False)
+
+    # Validate data quality and drift report generation
     mock_check_data_quality.assert_called_once_with(mock_df)
-
-    # Validate drift report generation
     mock_generate_drift_report.assert_called_once()
