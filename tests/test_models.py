@@ -1,7 +1,6 @@
 import logging
 
 import pytest
-from pyspark.ml import Pipeline
 from pyspark.ml.classification import RandomForestClassifier
 from pyspark.ml.linalg import Vectors, VectorUDT
 from pyspark.sql import SparkSession
@@ -47,7 +46,7 @@ def test_train_model(spark, tmpdir):
             (0, Vectors.dense([1.0, 2.0, 3.0])),
             (1, Vectors.dense([2.0, 3.0, 4.0])),
         ],
-        ["label", "engineered_features"],
+        ["Class", "features"],
     )
 
     # Write training data to a temporary Parquet file
@@ -78,30 +77,33 @@ def test_evaluate_model(spark, tmpdir):
             (0, Vectors.dense([1.0, 2.0, 3.0])),
             (1, Vectors.dense([2.0, 3.0, 4.0])),
         ],
-        ["label", "engineered_features"],
+        ["Class", "features"],
     )
 
     # Write test data to a temporary Parquet file
     test_data_path = tmpdir.join("test_data.parquet")
-    test_data.write.parquet(str(test_data_path))
+    test_data.write.mode("overwrite").parquet(str(test_data_path))
 
     # Train a dummy Pipeline model
-    rf = RandomForestClassifier(
-        featuresCol="engineered_features", labelCol="label", numTrees=5
-    )
-    pipeline = Pipeline(stages=[rf])
-    pipeline_model = pipeline.fit(test_data)
+    rf = RandomForestClassifier(featuresCol="features", labelCol="Class", numTrees=5)
+    rf_model = rf.fit(test_data)
 
-    # Save the PipelineModel
-    model_path = tmpdir.mkdir("models").join("pipeline_model")
-    pipeline_model.write().overwrite().save(str(model_path))
+    # Save the RandomForestClassificationModel
+    model_path = tmpdir.mkdir("models").join("rf_model")
+    rf_model.write().overwrite().save(str(model_path))
 
     # Evaluate the model
-    auc = evaluate_model(str(test_data_path), str(model_path))
+    try:
+        auc = evaluate_model(str(test_data_path), str(model_path))
 
-    # Validate the AUC metric
-    assert 0.0 <= auc <= 1.0, f"AUC metric {auc} is outside the valid range [0.0, 1.0]"
-    logger.info("test_evaluate_model passed successfully.")
+        # Validate the AUC metric
+        assert (
+            0.0 <= auc <= 1.0
+        ), f"AUC metric {auc} is outside the valid range [0.0, 1.0]"
+        logger.info("test_evaluate_model passed successfully.")
+    except Exception as e:
+        logger.error(f"Error during test_evaluate_model: {e}")
+        raise
 
 
 def test_train_with_empty_data(spark, tmpdir):
@@ -115,8 +117,8 @@ def test_train_with_empty_data(spark, tmpdir):
     # Define schema explicitly
     schema = StructType(
         [
-            StructField("label", DoubleType(), True),
-            StructField("engineered_features", VectorUDT(), True),
+            StructField("Class", DoubleType(), True),
+            StructField("features", VectorUDT(), True),
         ]
     )
 
