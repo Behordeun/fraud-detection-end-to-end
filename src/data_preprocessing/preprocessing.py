@@ -32,14 +32,17 @@ def handle_missing_values(df: DataFrame, target_column: str) -> DataFrame:
         if dtype in ["int", "double"] and field != target_column
     ]
     for col_name in numerical_cols:
-        median_value = df.approxQuantile(col_name, [0.5], 0)[0]
-        df = df.withColumn(
-            col_name,
-            when(df[col_name].isNull(), lit(median_value)).otherwise(df[col_name]),
-        )
-        print(
-            f"Replaced missing values in numerical column '{col_name}' with median: {median_value}"
-        )
+        # Filter out null values for accurate median calculation
+        non_null_values = df.select(col_name).filter(df[col_name].isNotNull())
+        if non_null_values.count() > 0:  # Ensure there are non-null values
+            median_value = non_null_values.approxQuantile(col_name, [0.5], 0.0)[0]
+            df = df.withColumn(
+                col_name,
+                when(df[col_name].isNull(), lit(median_value)).otherwise(df[col_name]),
+            )
+            print(
+                f"Replaced missing values in numerical column '{col_name}' with median: {median_value}"
+            )
 
     # Handle missing values for categorical columns
     categorical_cols = [field for field, dtype in df.dtypes if dtype == "string"]
@@ -101,9 +104,9 @@ def drop_unnecessary_columns(df: DataFrame) -> DataFrame:
     """
     columns_to_drop = ["id"]  # Add any other unnecessary columns here if needed
     print(f"Dropping unnecessary columns: {columns_to_drop}")
-    for col in columns_to_drop:
-        if col in df.columns:
-            df = df.drop(col)
+    for column in columns_to_drop:
+        if column in df.columns:
+            df = df.drop(column)
     print("Unnecessary columns dropped.")
     return df
 
@@ -111,11 +114,13 @@ def drop_unnecessary_columns(df: DataFrame) -> DataFrame:
 def set_features_and_target(df: DataFrame, target_column: str) -> DataFrame:
     """
     Add 'features' column while retaining the original variables in the schema.
+    Excludes the target column and unnecessary columns like 'id' from the feature vector.
     """
     print("Setting feature variables and target variable...")
 
-    # All columns except the target column are features
-    feature_columns = [col for col in df.columns if col != target_column]
+    # Exclude the target column and other non-feature columns (e.g., id) from the features
+    excluded_columns = [target_column, "id"]  # Add any other unnecessary columns here
+    feature_columns = [col for col in df.columns if col not in excluded_columns]
 
     print(f"Feature columns: {feature_columns}")
     print(f"Target column: {target_column}")
