@@ -1,3 +1,4 @@
+import os
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -33,6 +34,7 @@ def test_run_dvc_pipeline(
     mock_get_spark_session,
     mock_subprocess_run,
     mock_config_path,
+    tmpdir,
 ):
     """
     Test the DVC pipeline with mocked dependencies.
@@ -43,10 +45,34 @@ def test_run_dvc_pipeline(
     mock_get_spark_session.return_value = mock_spark
     mock_spark.read.parquet.return_value = mock_df
 
+    # Create the directory expected by the pipeline
+    processed_data_dir = tmpdir.mkdir("data").mkdir("processed").mkdir("train")
+
     # Run the pipeline
     run_dvc_pipeline(mock_config_path)
 
     # Validate subprocess calls
     mock_subprocess_run.assert_any_call(["dvc", "add", "data/raw"], check=True)
-    mock_get_spark_session.assert_called_once()
+    mock_subprocess_run.assert_any_call(
+        [
+            "dvc",
+            "run",
+            "-n",
+            "preprocess",
+            "-d",
+            "src/data_preprocessing/preprocessing.py",
+            "-d",
+            "data/raw",
+            "-o",
+            "data/processed",
+            "python src/data_preprocessing/preprocessing.py",
+        ],
+        check=True,
+    )
+
+    # Validate Spark session and data quality checks
+    mock_get_spark_session.assert_called_once_with("DataQualityCheck")
     mock_check_data_quality.assert_called_once_with(mock_df)
+
+    # Validate drift report generation
+    mock_generate_drift_report.assert_called_once()
