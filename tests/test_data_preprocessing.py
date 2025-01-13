@@ -111,8 +111,12 @@ def test_set_features_and_target(spark):
 
     # Validate the `features` column contains the correct data (excluding target column)
     feature_vectors = processed_data.select("features").collect()
-    assert feature_vectors[0]["features"].toArray().tolist() == [200.0], f"Incorrect feature vector for first row: {feature_vectors[0]['features'].toArray().tolist()}"
-    assert feature_vectors[1]["features"].toArray().tolist() == [300.0], f"Incorrect feature vector for second row: {feature_vectors[1]['features'].toArray().tolist()}"
+    assert feature_vectors[0]["features"].toArray().tolist() == [
+        200.0
+    ], f"Incorrect feature vector for first row: {feature_vectors[0]['features'].toArray().tolist()}"
+    assert feature_vectors[1]["features"].toArray().tolist() == [
+        300.0
+    ], f"Incorrect feature vector for second row: {feature_vectors[1]['features'].toArray().tolist()}"
 
     # Ensure the target column is preserved
     assert "Class" in processed_data.columns, "Target column 'Class' is missing"
