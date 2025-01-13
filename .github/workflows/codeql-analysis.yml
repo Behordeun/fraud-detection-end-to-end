@@ -28,8 +28,6 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: python
-          # Uncomment if you have advanced configurations
-          # config-file: .github/codeql/codeql-config.yml
 
       # Run CodeQL analysis
       - name: Perform CodeQL Analysis
