@@ -1,12 +1,16 @@
+import os
+
 import pytest
 from pyspark.sql import SparkSession
 from pyspark.sql.types import DoubleType, StructField, StructType
 
+from src.data_preprocessing.feature_engineering import save_engineered_data
 from src.data_preprocessing.preprocessing import (
     handle_missing_values,
     load_data,
     save_preprocessed_data,
     scale_features,
+    set_features_and_target,
     split_data,
 )
 
@@ -70,25 +74,48 @@ def test_load_data(spark, tmpdir):
 
 def test_scale_features(spark):
     """
-    Test that scale_features scales numerical columns correctly.
+    Test that scale_features scales the numerical column correctly.
     """
-    # Sample data
+    # Create sample data
     data = spark.createDataFrame(
-        [(1, 100.0, 200.0), (2, 150.0, 300.0)], ["id", "feature1", "feature2"]
+        [(1, 100.0), (2, 200.0)],
+        ["id", "Amount"],
     )
 
     # Call the function
-    scaled_data = scale_features(data, numerical_columns=["feature1", "feature2"])
+    scaled_data = scale_features(data)
 
-    # Validate scaled features
-    assert "scaled_features" in scaled_data.columns
-    assert scaled_data.select("scaled_features").count() == data.count()
+    # Validate the `Amount` column is scaled
+    assert "Amount" in scaled_data.columns, "Missing 'Amount' column in scaled data"
+    assert scaled_data.filter(scaled_data["Amount"].isNull()).count() == 0
 
-    # Validate content
-    scaled_values = scaled_data.select("scaled_features").collect()
-    assert len(scaled_values) == 2
-    for row in scaled_values:
-        assert len(row["scaled_features"].toArray()) == 2  # Check array size
+
+def test_set_features_and_target(spark):
+    """
+    Test that set_features_and_target correctly sets the features column.
+    """
+    # Create sample data
+    data = spark.createDataFrame(
+        [
+            (1, 200.0, 1),
+            (2, 300.0, 0),
+        ],
+        ["id", "Amount", "Class"],
+    )
+
+    # Call the function
+    processed_data = set_features_and_target(data, target_column="Class")
+
+    # Validate the `features` column is created
+    assert "features" in processed_data.columns, "Missing 'features' column"
+
+    # Validate the `features` column contains the correct data (excluding target column)
+    feature_vectors = processed_data.select("features").collect()
+    assert feature_vectors[0]["features"].toArray().tolist() == [200.0], f"Incorrect feature vector for first row: {feature_vectors[0]['features'].toArray().tolist()}"
+    assert feature_vectors[1]["features"].toArray().tolist() == [300.0], f"Incorrect feature vector for second row: {feature_vectors[1]['features'].toArray().tolist()}"
+
+    # Ensure the target column is preserved
+    assert "Class" in processed_data.columns, "Target column 'Class' is missing"
 
 
 def test_split_data(spark):
@@ -97,16 +124,20 @@ def test_split_data(spark):
     """
     # Sample data
     data = spark.createDataFrame(
-        [(1, 200.0), (2, 300.0), (3, 400.0), (4, 500.0)], ["id", "amount"]
+        [(1, 200.0), (2, 300.0), (3, 400.0), (4, 500.0)], ["id", "Amount"]
     )
 
     # Call the function
-    train_data, test_data = split_data(data, test_size=0.5, seed=42)
+    train_data, test_data, reserve_data = split_data(
+        data, test_size=0.3, reserve_size=0.3, seed=42
+    )
 
     # Validate data split
-    assert train_data.count() + test_data.count() == data.count()
-    assert train_data.count() > 0
-    assert test_data.count() > 0
+    total_count = train_data.count() + test_data.count() + reserve_data.count()
+    assert total_count == data.count(), "Data split total does not match input data"
+    assert train_data.count() > 0, "Training set is empty"
+    assert test_data.count() > 0, "Test set is empty"
+    assert reserve_data.count() > 0, "Reserve set is empty"
 
 
 def test_save_preprocessed_data(spark, tmpdir):
@@ -114,28 +145,33 @@ def test_save_preprocessed_data(spark, tmpdir):
     Test that save_preprocessed_data writes the preprocessed data correctly.
     """
     # Sample data
-    train_data = spark.createDataFrame([(1, 200.0), (2, 300.0)], ["id", "amount"])
-    test_data = spark.createDataFrame([(3, 400.0), (4, 500.0)], ["id", "amount"])
+    train_data = spark.createDataFrame([(1, 200.0)], ["id", "Amount"])
+    test_data = spark.createDataFrame([(2, 300.0)], ["id", "Amount"])
+    reserve_data = spark.createDataFrame([(3, 400.0)], ["id", "Amount"])
 
     # Temporary output path
     output_dir = tmpdir.mkdir("processed_data")
 
     # Call the function
-    save_preprocessed_data(train_data, test_data, str(output_dir))
+    save_preprocessed_data(train_data, test_data, reserve_data, str(output_dir))
 
     # Validate saved files
     train_path = output_dir / "train"
     test_path = output_dir / "test"
+    reserve_path = output_dir / "new_data"
 
-    assert train_path.exists()
-    assert test_path.exists()
+    assert os.path.exists(f"{output_dir}/train")
+    assert os.path.exists(f"{output_dir}/test")
+    assert os.path.exists(f"{output_dir}/new_data")
 
     # Reload and validate content
     loaded_train_data = spark.read.parquet(str(train_path))
     loaded_test_data = spark.read.parquet(str(test_path))
+    loaded_reserve_data = spark.read.parquet(str(reserve_path))
 
     assert loaded_train_data.count() == train_data.count()
     assert loaded_test_data.count() == test_data.count()
+    assert loaded_reserve_data.count() == reserve_data.count()
 
 
 def test_save_preprocessed_data_with_empty_data(spark, tmpdir):
@@ -146,30 +182,57 @@ def test_save_preprocessed_data_with_empty_data(spark, tmpdir):
     schema = StructType(
         [
             StructField("id", DoubleType(), True),
-            StructField("amount", DoubleType(), True),
+            StructField("Amount", DoubleType(), True),
         ]
     )
 
     # Empty train and test datasets
     train_data = spark.createDataFrame([], schema)
     test_data = spark.createDataFrame([], schema)
+    reserve_data = spark.createDataFrame([], schema)
 
     # Temporary output path
     output_dir = tmpdir.mkdir("processed_data_empty")
 
     # Call the function
-    save_preprocessed_data(train_data, test_data, str(output_dir))
+    save_preprocessed_data(train_data, test_data, reserve_data, str(output_dir))
 
     # Validate saved files
     train_path = output_dir / "train"
     test_path = output_dir / "test"
+    reserve_path = output_dir / "new_data"
 
     assert train_path.exists()
     assert test_path.exists()
+    assert reserve_path.exists()
 
     # Reload and validate content
     loaded_train_data = spark.read.parquet(str(train_path))
     loaded_test_data = spark.read.parquet(str(test_path))
+    loaded_reserve_data = spark.read.parquet(str(reserve_path))
 
     assert loaded_train_data.count() == 0
     assert loaded_test_data.count() == 0
+    assert loaded_reserve_data.count() == 0
+
+
+def test_save_engineered_data(spark, tmpdir):
+    """
+    Test that save_engineered_data saves the data to Parquet correctly.
+    """
+    # Create sample data
+    data = spark.createDataFrame(
+        [(1, 100.0), (2, 200.0)],
+        ["id", "Amount"],
+    )
+
+    # Define output path
+    output_path = tmpdir.mkdir("engineered_data")
+
+    # Call the function
+    save_engineered_data(data, str(output_path))
+
+    # Validate the data is saved
+    saved_data = spark.read.parquet(str(output_path))
+    assert saved_data.count() == data.count(), "Row count mismatch"
+    assert set(saved_data.columns) == set(data.columns), "Column mismatch"
