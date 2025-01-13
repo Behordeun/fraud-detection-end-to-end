@@ -42,3 +42,4 @@ mlruns
 *.log
 logs/
 models/*
+.github/workflows/codeql-analysis.yml
