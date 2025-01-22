@@ -43,3 +43,4 @@ mlruns
 logs/
 models/*
 .github/workflows/codeql-analysis.yml
+*.pydevinfo
