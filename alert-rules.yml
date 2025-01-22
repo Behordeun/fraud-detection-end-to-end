@@ -1,0 +1,106 @@
+groups:
+  - name: general-alerts
+    rules:
+      # Alert: Prometheus Server Down
+      - alert: PrometheusServerDown
+        expr: up{job="prometheus"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Prometheus server is down"
+          description: "Prometheus server has been unreachable for more than 1 minute."
+
+      # Alert: MinIO Service Down
+      - alert: MinIOServiceDown
+        expr: up{job="minio"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "MinIO service is down"
+          description: "MinIO service has been unreachable for more than 2 minutes."
+
+      # Alert: High CPU Usage
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100) > 90
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage detected"
+          description: "The CPU usage has exceeded 90% for more than 2 minutes."
+
+      # Alert: High Memory Usage
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage has exceeded 90% for more than 5 minutes."
+
+  - name: ml-pipeline-alerts
+    rules:
+      # Alert: ML Pipeline Task Failure
+      - alert: MLPipelineTaskFailure
+        expr: ml_pipeline_task_status{status="failed"} > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ML pipeline task failure"
+          description: "One or more ML pipeline tasks have failed."
+
+      # Alert: Data Drift Detected
+      - alert: DataDriftDetected
+        expr: data_drift_metric > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Data drift detected"
+          description: "The data drift metric has exceeded the threshold of 0.8 for 5 minutes."
+
+      # Alert: Model Drift Detected
+      - alert: ModelDriftDetected
+        expr: model_drift_metric > 0.7
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Model drift detected"
+          description: "The model drift metric has exceeded the threshold of 0.7 for 5 minutes."
+
+  - name: custom-application-alerts
+    rules:
+      # Alert: Application Down
+      - alert: ApplicationDown
+        expr: up{job="application"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Application is down"
+          description: "The monitored application is down or unreachable for more than 1 minute."
+
+      # Alert: High Request Latency
+      - alert: HighRequestLatency
+        expr: rate(http_request_duration_seconds_sum[5m]) / rate(http_request_duration_seconds_count[5m]) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High request latency detected"
+          description: "The average request latency has exceeded 0.5 seconds over the last 5 minutes."
+
+      # Alert: High Error Rate
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[2m]) / rate(http_requests_total[2m]) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "More than 10% of HTTP requests are returning 5xx errors."
