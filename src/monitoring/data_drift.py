@@ -61,18 +61,20 @@ def compare_distributions(baseline_stats, current_stats, threshold=2):
 def monitor_data_drift(baseline_data_path, current_data_path, output_path, threshold=2):
     spark = SparkSession.builder \
         .appName("DataDriftMonitoring") \
+        .config("spark.driver.memory", "8g") \
         .config("spark.executor.memory", "4g") \
-        .config("spark.driver.memory", "4g") \
         .config("spark.executor.cores", "2") \
         .config("spark.sql.shuffle.partitions", "50") \
+        .config("spark.eventLog.enabled", "true") \
+        .config("spark.eventLog.dir", "/tmp/spark-events") \
         .getOrCreate()
 
     logger.info(f"Baseline data path: {baseline_data_path}")
     logger.info(f"Current data path: {current_data_path}")
 
     logger.info("Loading baseline and current datasets...")
-    baseline_data = load_data(spark, baseline_data_path)
-    current_data = load_data(spark, current_data_path)
+    baseline_data = load_data(spark, baseline_data_path).limit(1000)
+    current_data = load_data(spark, current_data_path).limit(1000)
 
     numerical_columns = [
         field for field, dtype in baseline_data.dtypes if dtype in ["int", "double"]
