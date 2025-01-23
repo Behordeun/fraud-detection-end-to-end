@@ -45,3 +45,4 @@ models/*
 .github/workflows/codeql-analysis.yml
 *.pydevinfo
 data/drifted_data/*
+monitoring_reports/*
