@@ -52,9 +52,9 @@ def monitor_model_drift(
 
 
 if __name__ == "__main__":
-    BASELINE_MODEL_PATH = "models/baseline_model"
+    BASELINE_MODEL_PATH = "models/random_forest/"
     CURRENT_MODEL_PATH = "models/current_model"
-    TEST_DATA_PATH = "data/processed/engineered/test"
+    TEST_DATA_PATH = "data/processed/test"
     OUTPUT_PATH = "monitoring_reports/model_drift_report.csv"
 
     monitor_model_drift(
