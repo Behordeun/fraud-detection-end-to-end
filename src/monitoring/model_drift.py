@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 from pyspark.ml import PipelineModel
 from pyspark.ml.evaluation import BinaryClassificationEvaluator
@@ -24,9 +25,15 @@ def monitor_model_drift(
     spark = SparkSession.builder.appName("ModelDriftMonitoring").getOrCreate()
 
     print("Loading test data...")
+    if not os.path.exists(test_data_path):
+        raise FileNotFoundError(f"Test data path does not exist: {test_data_path}")
     test_data = spark.read.parquet(test_data_path)
 
     print("Loading baseline and current models...")
+    if not os.path.exists(baseline_model_path):
+        raise FileNotFoundError(f"Baseline model path does not exist: {baseline_model_path}")
+    if not os.path.exists(current_model_path):
+        raise FileNotFoundError(f"Current model path does not exist: {current_model_path}")
     baseline_model = PipelineModel.load(baseline_model_path)
     current_model = PipelineModel.load(current_model_path)
 
@@ -52,11 +59,14 @@ def monitor_model_drift(
 
 
 if __name__ == "__main__":
-    BASELINE_MODEL_PATH = "models/random_forest/"
-    CURRENT_MODEL_PATH = "models/current_model"
-    TEST_DATA_PATH = "data/processed/test"
+    BASELINE_MODEL_PATH = "models/random_forest_model/"
+    CURRENT_MODEL_PATH = "models/current_model/"
+    TEST_DATA_PATH = "data/processed/test/"
     OUTPUT_PATH = "monitoring_reports/model_drift_report.csv"
 
-    monitor_model_drift(
-        BASELINE_MODEL_PATH, CURRENT_MODEL_PATH, TEST_DATA_PATH, OUTPUT_PATH
-    )
+    try:
+        monitor_model_drift(
+            BASELINE_MODEL_PATH, CURRENT_MODEL_PATH, TEST_DATA_PATH, OUTPUT_PATH
+        )
+    except Exception as e:
+        print(f"Error: {e}")
