@@ -46,3 +46,4 @@ models/*
 *.pydevinfo
 data/drifted_data/*
 monitoring_reports/*
+src/monitoring/pokemon.py
