@@ -2,24 +2,26 @@ import pandas as pd
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, mean, stddev
 import os
-import glob
 import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 def load_data(spark, path):
+    """
+    Load data from the given path using Spark.
+    Handles directories properly to avoid non-data files (e.g., _SUCCESS).
+    """
     if not os.path.exists(path):
         raise FileNotFoundError(f"Path does not exist: {path}")
 
-    # Check if the path is a directory
+    # If the path is a directory, load all data files
     if os.path.isdir(path):
-        files = glob.glob(os.path.join(path, "*"))
-        if not files:
-            raise ValueError(f"No files found in directory: {path}")
-        path = files[0]  # Use the first file
-        logger.info(f"Using file: {path}")
+        logger.info(f"Loading data from directory: {path}")
+        return spark.read.parquet(path)
 
+    # Detect file extension for single files
     ext = os.path.splitext(path)[1].lower()
 
     if ext == ".csv":
@@ -33,6 +35,9 @@ def load_data(spark, path):
 
 
 def calculate_statistics(df, columns):
+    """
+    Calculate mean and standard deviation for the given columns in the DataFrame.
+    """
     stats_df = df.select(
         *[mean(col(c)).alias(f"{c}_mean") for c in columns],
         *[stddev(col(c)).alias(f"{c}_stddev") for c in columns],
@@ -44,6 +49,9 @@ def calculate_statistics(df, columns):
 
 
 def compare_distributions(baseline_stats, current_stats, threshold=2):
+    """
+    Compare distributions of baseline and current datasets to detect drift.
+    """
     drift_report = {}
     for column in baseline_stats.keys():
         baseline_mean = baseline_stats[column]["mean"]
@@ -59,6 +67,9 @@ def compare_distributions(baseline_stats, current_stats, threshold=2):
 
 
 def monitor_data_drift(baseline_data_path, current_data_path, output_path, threshold=2):
+    """
+    Monitor data drift by comparing statistics between baseline and current datasets.
+    """
     spark = SparkSession.builder \
         .appName("DataDriftMonitoring") \
         .config("spark.driver.memory", "8g") \
