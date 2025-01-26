@@ -4,6 +4,7 @@ from pyspark.ml.evaluation import BinaryClassificationEvaluator
 from pyspark.sql import SparkSession
 import os
 import json
+import pandas as pd
 
 
 def load_model(model_path):
@@ -87,7 +88,6 @@ def monitor_model_drift(baseline_model_path, current_model_path, test_data_path,
         "drift_detected": drift_detected,
     }
 
-    import pandas as pd
     pd.DataFrame([report]).to_csv(output_path)
     print(f"Model drift report saved to {output_path}")
 
