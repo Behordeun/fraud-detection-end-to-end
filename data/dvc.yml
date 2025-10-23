@@ -1,6 +1,6 @@
 stages:
   preprocess:
-    cmd: python src/data_preprocessing/preprocessing.py \ --input ../data/raw/creditcard_2023.csv \ --output data/processed/
+    cmd: cd .. && python src/data_preprocessing/preprocessing.py
     deps:
     - ../src/data_preprocessing/preprocessing.py
     - ../data/raw/creditcard_2023.csv
@@ -8,7 +8,7 @@ stages:
     - ../data/processed/
 
   feature_engineering:
-    cmd: python src/data_preprocessing/feature_engineering.py \ --input ../data/processed/ \ --output data/processed/engineered/
+    cmd: cd .. && python src/data_preprocessing/feature_engineering.py
     deps:
     - ../src/data_preprocessing/feature_engineering.py
     - ../data/processed/
@@ -16,9 +16,27 @@ stages:
     - ../data/processed/engineered/
 
   train:
-    cmd: python src/models/train.py \ --data data/processed/engineered/ \ --model models/
+    cmd: cd .. && python src/models/train.py
     deps:
     - ../src/models/train.py
     - ../data/processed/engineered/
     outs:
-    - models/
+    - ../models/
+
+  evaluate:
+    cmd: cd .. && python src/models/evaluate.py
+    deps:
+    - ../src/models/evaluate.py
+    - ../models/
+    - ../data/processed/engineered/
+    metrics:
+    - ../metrics.json
+
+  predict:
+    cmd: cd .. && python src/models/predict.py
+    deps:
+    - ../src/models/predict.py
+    - ../models/
+    - ../data/processed/
+    outs:
+    - ../data/predictions/

@@ -1,192 +1,115 @@
-import logging
-
-from pyspark.ml.feature import VectorAssembler
+import numpy as np
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import col, isnan, lit, log, sqrt, when
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("FeatureEngineering")
+from pyspark.sql.functions import col, when, log, sqrt, abs as spark_abs
+from pyspark.ml.feature import VectorAssembler
 
 
-def load_data(input_path: str) -> DataFrame:
-    """
-    Load the preprocessed data from Parquet files.
-    """
-    logger.info(f"Loading data from {input_path}...")
-    spark = SparkSession.builder.appName(
-        "CreditCardFraudFeatureEngineering"
-    ).getOrCreate()
-
-    try:
-        df = spark.read.parquet(input_path)
-        logger.info(f"Data loaded with schema: {df.schema}")
-        return df
-    except Exception as e:
-        logger.error(f"Error loading data from {input_path}: {e}")
-        raise
-
-
-def handle_missing_values(df: DataFrame, threshold: float = 0.05) -> DataFrame:
-    """
-    Handle missing values in the dataset based on the percentage of missing observations.
-    - Replace NaNs with the median if missing > threshold.
-    - Drop rows if missing <= threshold.
-
-    Args:
-        df (DataFrame): Input DataFrame.
-        threshold (float): Threshold for percentage of missing observations (default is 5%).
-
-    Returns:
-        DataFrame: DataFrame with missing values handled.
-    """
-    print("Handling missing values...")
-
-    # Total number of rows in the dataset
-    total_rows = df.count()
-
-    for col_name in df.columns:
-        # Calculate the percentage of missing values
-        missing_count = df.filter(df[col_name].isNull() | isnan(df[col_name])).count()
-        missing_percentage = missing_count / total_rows
-
-        if missing_percentage > threshold:
-            # Replace NaNs with the median
-            print(
-                f"Column '{col_name}' has {missing_percentage:.2%} missing values. Replacing with median."
-            )
-            median_value = (
-                df.approxQuantile(col_name, [0.5], 0)[0]
-                if col_name in [c[0] for c in df.dtypes if c[1] in ["double", "int"]]
-                else None
-            )
-            if median_value is not None:
-                df = df.withColumn(
-                    col_name,
-                    when(
-                        df[col_name].isNull() | isnan(df[col_name]), lit(median_value)
-                    ).otherwise(df[col_name]),
-                )
-        elif missing_percentage > 0:
-            # Drop rows with NaNs if missing <= threshold
-            print(
-                f"Column '{col_name}' has {missing_percentage:.2%} missing values. Dropping rows."
-            )
-            df = df.filter(df[col_name].isNotNull())
-
-    print("Missing values handled.")
+def create_time_features(df: DataFrame) -> DataFrame:
+    """Create time-based features from the Time column."""
+    print("Creating time-based features...")
+    
+    # Convert seconds to hours
+    df = df.withColumn("Hour", (col("Time") / 3600) % 24)
+    
+    # Create time periods
+    df = df.withColumn("Time_Period", 
+        when((col("Hour") >= 6) & (col("Hour") < 12), "Morning")
+        .when((col("Hour") >= 12) & (col("Hour") < 18), "Afternoon")
+        .when((col("Hour") >= 18) & (col("Hour") < 24), "Evening")
+        .otherwise("Night")
+    )
+    
     return df
 
 
-def add_derived_features(df: DataFrame) -> DataFrame:
-    """
-    Add new derived features to the dataset.
-    """
-    logger.info("Adding derived features...")
-
-    try:
-        # Example: Log transformation (to reduce skewness for features > 0)
-        numerical_cols = [
-            field
-            for field, dtype in df.dtypes
-            if dtype in ["int", "double"] and field != "label"
-        ]
-        for col_name in numerical_cols:
-            if col_name not in ["features", "scaled_features"]:
-                df = df.withColumn(
-                    f"log_{col_name}",
-                    when(df[col_name] > 0, log(df[col_name])).otherwise(
-                        lit(0)
-                    ),  # Replace invalid values with 0
-                )
-
-        # Check if interaction columns exist
-        if "feature1" in df.columns and "feature2" in df.columns:
-            df = df.withColumn("interaction", col("feature1") * col("feature2"))
-        else:
-            logger.warning("Interaction columns ('feature1', 'feature2') not found.")
-
-        # Add polynomial features and handle invalid values
-        for col_name in numerical_cols:
-            df = df.withColumn(
-                f"{col_name}_squared",
-                when(df[col_name].isNotNull(), pow(col(col_name), 2)).otherwise(lit(0)),
-            )
-            df = df.withColumn(
-                f"{col_name}_sqrt",
-                when(df[col_name] >= 0, sqrt(col(col_name))).otherwise(lit(0)),
-            )
-
-        logger.info("Derived features added successfully.")
-        return df
-    except Exception as e:
-        logger.error(f"Error adding derived features: {e}")
-        raise
+def create_amount_features(df: DataFrame) -> DataFrame:
+    """Create amount-based features."""
+    print("Creating amount-based features...")
+    
+    # Log transformation of amount (add 1 to handle zero values)
+    df = df.withColumn("Amount_log", log(col("Amount") + 1))
+    
+    # Square root transformation
+    df = df.withColumn("Amount_sqrt", sqrt(col("Amount")))
+    
+    # Amount categories
+    df = df.withColumn("Amount_Category",
+        when(col("Amount") == 0, "Zero")
+        .when(col("Amount") <= 10, "Small")
+        .when(col("Amount") <= 100, "Medium")
+        .when(col("Amount") <= 1000, "Large")
+        .otherwise("Very_Large")
+    )
+    
+    return df
 
 
-def select_features(df: DataFrame, selected_columns: list) -> DataFrame:
-    """
-    Select the subset of features to keep for model training.
-    """
-    logger.info("Selecting features...")
-
-    try:
-        # Validate selected columns
-        missing_columns = [col for col in selected_columns if col not in df.columns]
-        if missing_columns:
-            raise ValueError(f"Missing columns in dataset: {missing_columns}")
-
-        # Use a VectorAssembler to create a feature vector
-        assembler = VectorAssembler(
-            inputCols=selected_columns, outputCol="engineered_features"
-        )
-        df = assembler.transform(df)
-        logger.info(f"Selected features: {selected_columns}")
-        return df
-    except Exception as e:
-        logger.error(f"Error selecting features: {e}")
-        raise
+def create_pca_features(df: DataFrame) -> DataFrame:
+    """Create features based on PCA components."""
+    print("Creating PCA-based features...")
+    
+    # Get PCA columns (V1 to V28)
+    pca_cols = [f"V{i}" for i in range(1, 29)]
+    
+    # Create magnitude of PCA vector
+    sum_expr = sum([col(c) * col(c) for c in pca_cols])
+    df = df.withColumn("PCA_Magnitude", sqrt(sum_expr))
+    
+    # Create features based on PCA component ranges
+    df = df.withColumn("V1_to_V10_sum", sum([col(f"V{i}") for i in range(1, 11)]))
+    df = df.withColumn("V11_to_V20_sum", sum([col(f"V{i}") for i in range(11, 21)]))
+    df = df.withColumn("V21_to_V28_sum", sum([col(f"V{i}") for i in range(21, 29)]))
+    
+    return df
 
 
-def save_engineered_data(df: DataFrame, output_path: str):
-    """
-    Save the dataset with engineered features.
-    """
-    logger.info(f"Saving engineered data to {output_path}...")
-    try:
-        df.write.mode("overwrite").parquet(output_path)
-        logger.info("Engineered data saved successfully.")
-    except Exception as e:
-        logger.error(f"Error saving engineered data to {output_path}: {e}")
-        raise
+def create_interaction_features(df: DataFrame) -> DataFrame:
+    """Create interaction features."""
+    print("Creating interaction features...")
+    
+    # Amount and time interactions
+    df = df.withColumn("Amount_Hour_Interaction", col("Amount") * col("Hour"))
+    
+    # High-impact PCA components with amount
+    df = df.withColumn("V1_Amount", col("V1") * col("Amount"))
+    df = df.withColumn("V2_Amount", col("V2") * col("Amount"))
+    df = df.withColumn("V3_Amount", col("V3") * col("Amount"))
+    
+    return df
+
+
+def engineer_features(input_path: str, output_path: str):
+    """Main feature engineering pipeline."""
+    spark = SparkSession.builder.appName("FeatureEngineering").getOrCreate()
+    
+    print(f"Loading data from {input_path}...")
+    df = spark.read.parquet(f"{input_path}/train")
+    test_df = spark.read.parquet(f"{input_path}/test")
+    
+    # Apply feature engineering to both datasets
+    for dataset_name, dataset in [("train", df), ("test", test_df)]:
+        print(f"Engineering features for {dataset_name} dataset...")
+        
+        # Apply all feature engineering steps
+        dataset = create_time_features(dataset)
+        dataset = create_amount_features(dataset)
+        dataset = create_pca_features(dataset)
+        dataset = create_interaction_features(dataset)
+        
+        # Update feature vector
+        feature_cols = [c for c in dataset.columns if c not in ["Class", "features"]]
+        assembler = VectorAssembler(inputCols=feature_cols, outputCol="features")
+        dataset = assembler.transform(dataset)
+        
+        # Save engineered dataset
+        print(f"Saving engineered {dataset_name} data...")
+        dataset.write.mode("overwrite").parquet(f"{output_path}/{dataset_name}")
+    
+    print("Feature engineering completed!")
 
 
 if __name__ == "__main__":
-    # Paths
-    INPUT_PATH = "data/processed/train"  # Path to preprocessed training data
+    INPUT_PATH = "data/processed"
     OUTPUT_PATH = "data/processed/engineered"
-
-    try:
-        # Load preprocessed data
-        data = load_data(INPUT_PATH)
-
-        # Handle missing values
-        data = handle_missing_values(data, threshold=0.05)
-
-        # Add derived features
-        data = add_derived_features(data)
-
-        # Select features for training
-        # Assuming we use all numerical columns and the new engineered features
-        selected_features = [
-            col
-            for col in data.columns
-            if "log_" in col or "_squared" in col or "_sqrt" in col
-        ]
-        data = select_features(data, selected_features)
-
-        # Save engineered data
-        save_engineered_data(data, OUTPUT_PATH)
-
-    except Exception as e:
-        logger.error(f"Feature engineering pipeline failed: {e}")
+    
+    engineer_features(INPUT_PATH, OUTPUT_PATH)

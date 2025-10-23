@@ -72,6 +72,25 @@ def test_load_data(spark, tmpdir):
     assert [(row.id, row.category) for row in data_content] == expected_content
 
 
+# def test_load_data_with_parquet_directory(spark, tmpdir):
+#     """
+#     Test that load_data correctly handles a Parquet directory.
+#     """
+#     # Create a DataFrame
+#     data = spark.createDataFrame([(1, 2.0), (3, 4.0)], ["feature1", "feature2"])
+#     data_path = tmpdir.mkdir("data_dir")
+#
+#     # Write the DataFrame as Parquet using "overwrite" mode
+#     data.write.mode("overwrite").parquet(str(data_path))
+#
+#     # Load the data using load_data
+#     loaded_data = load_data(spark, str(data_path))
+#
+#     # Assertions to verify data integrity
+#     assert loaded_data.count() == data.count()
+#     assert loaded_data.columns == data.columns
+
+
 def test_scale_features(spark):
     """
     Test that scale_features scales the numerical column correctly.

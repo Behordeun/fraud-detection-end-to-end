@@ -1,7 +1,8 @@
-from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, mean, lit, expr
-import numpy as np
 import os
+
+import numpy as np
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, lit, mean
 
 
 def read_data(spark, file_path):
@@ -60,30 +61,28 @@ def simulate_data_drift(
     original_data = read_data(spark, original_data_path)
 
     # Ensure drift_columns exist in the dataset
-    original_columns = original_data.columns
     for col_name in drift_columns:
-        if col_name not in original_columns:
+        if col_name not in original_data.columns:
             raise ValueError(f"Column '{col_name}' not found in the dataset.")
 
-    # Introduce drift in the specified columns
+    # Introduce drift only in specified columns
     for col_name in drift_columns:
         if drift_type == "mean":
-            # Compute the mean of the column
             col_mean = original_data.select(mean(col(col_name))).collect()[0][0]
-            # Add a fraction of the mean to introduce drift
             original_data = original_data.withColumn(
-                col_name, col(col_name) + lit(drift_factor * col_mean)
+                col_name, col(col_name) + lit(drift_factor * abs(col_mean))
             )
         elif drift_type == "variance":
-            # Multiply the column values to increase variance
             original_data = original_data.withColumn(
                 col_name, col(col_name) * lit(1 + drift_factor)
             )
         else:
             raise ValueError("Unsupported drift_type. Choose 'mean' or 'variance'.")
 
-    # Sample `n_samples` rows to match the desired size of the drifted dataset
-    drifted_data = original_data.sample(withReplacement=True, fraction=1.0).limit(
+    # Ensure the drifted dataset has exactly n_samples rows
+    total_rows = original_data.count()
+    fraction = n_samples / total_rows if total_rows > 0 else 1.0
+    drifted_data = original_data.sample(withReplacement=True, fraction=fraction).limit(
         n_samples
     )
 

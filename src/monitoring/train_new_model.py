@@ -12,12 +12,14 @@ def train_current_model(train_data_path: str, model_output_path: str):
     """
     # Create a Spark session
     spark = (
-    SparkSession.builder.appName("CurrentModelTraining")
-    .config("spark.driver.memory", "8g")  # Increase driver memory
-    .config("spark.executor.memory", "4g")  # Increase executor memory
-    .config("spark.sql.shuffle.partitions", "50")  # Optimize partitions
-    .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")  # Use Kryo serializer
-    .getOrCreate()
+        SparkSession.builder.appName("CurrentModelTraining")
+        .config("spark.driver.memory", "8g")  # Increase driver memory
+        .config("spark.executor.memory", "4g")  # Increase executor memory
+        .config("spark.sql.shuffle.partitions", "50")  # Optimize partitions
+        .config(
+            "spark.serializer", "org.apache.spark.serializer.KryoSerializer"
+        )  # Use Kryo serializer
+        .getOrCreate()
     )
 
     print("Loading training data...")

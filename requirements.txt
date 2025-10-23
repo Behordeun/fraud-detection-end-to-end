@@ -1,36 +1,42 @@
 # Core Libraries
-pyspark        # Core PySpark library
-numpy          # For numerical computations
-pandas         # Data manipulation
-scikit-learn   # For ML tools
-joblib         # For saving and loading scalers
-matplotlib     # For data visualization
-seaborn        # Advanced visualization library
-plotly         # Interactive plots
+pyspark==3.5.0
+numpy==1.24.3
+pandas==2.0.3
+scikit-learn==1.3.0
+joblib==1.3.1
+matplotlib==3.7.2
+seaborn==0.12.2
+plotly==5.15.0
 
 # MLOps and Experiment Tracking
-mlflow[sqlalchemy,postgres]    # Experiment tracking with SQL and Postgres
-dvc[s3]                        # Data version control
-boto3==1.35.93                 # AWS SDK for S3/MinIO
-botocore==1.35.93              # AWS SDK for S3/MinIO
-aiobotocore==2.17.0            # Async AWS SDK for S3/MinIO
+mlflow==2.7.1
+dvc[s3]==3.22.0
+boto3==1.35.93
+botocore==1.35.93
 
+# API Framework
+fastapi==0.104.1
+uvicorn==0.24.0
+pydantic==2.5.0
 
 # Metadata Management
-openmetadata-ingestion==1.4.8.1         # Metadata management
-PyYAML==6.0.2                           # For reading YAML files
+PyYAML==6.0.2
 
 # Testing and Code Quality
-pytest==8.3.4                  # For testing
-pytest-cov==6.0.0              # For test coverage
-pytest-xdist                   # For parallel testing
-pluggy==1.5.0                  # For plugin management
-pytest-metadata==3.1.1
-flake8                         # Code linting
-autopep8                       # Auto-formatting
-autoflake                      # Remove unused imports
-isort                          # Sort imports
-black                          # Code formatting
+pytest==8.3.4
+pytest-cov==6.0.0
+flake8==6.1.0
+black==23.9.1
 
 # Workflow Management
-apache-airflow==2.10.4
+apache-airflow==2.7.2
+
+# Additional utilities
+requests==2.31.0
+pathlib2==2.3.7
+streamlit==1.28.1
+
+# Advanced ML and Monitoring
+optuna==3.4.0
+kafka-python==2.0.2
+scipy==1.11.3

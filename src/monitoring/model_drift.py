@@ -1,10 +1,11 @@
+import json
+import os
+
+import pandas as pd
 from pyspark.ml import PipelineModel
 from pyspark.ml.classification import RandomForestClassificationModel
 from pyspark.ml.evaluation import BinaryClassificationEvaluator
 from pyspark.sql import SparkSession
-import os
-import json
-import pandas as pd
 
 
 def load_model(model_path):
@@ -14,7 +15,9 @@ def load_model(model_path):
     """
     metadata_path = os.path.join(model_path, "metadata")
     if not os.path.exists(metadata_path):
-        raise FileNotFoundError(f"Metadata not found in the model path: {metadata_path}")
+        raise FileNotFoundError(
+            f"Metadata not found in the model path: {metadata_path}"
+        )
 
     # Metadata for the saved model
     metadata_file = os.path.join(metadata_path, "part-00000")
@@ -24,7 +27,10 @@ def load_model(model_path):
             model_class = metadata.get("class")
             if model_class == "org.apache.spark.ml.PipelineModel":
                 return PipelineModel.load(model_path)
-            elif model_class == "org.apache.spark.ml.classification.RandomForestClassificationModel":
+            elif (
+                model_class
+                == "org.apache.spark.ml.classification.RandomForestClassificationModel"
+            ):
                 return RandomForestClassificationModel.load(model_path)
             else:
                 raise ValueError(f"Unsupported model class: {model_class}")
@@ -37,7 +43,9 @@ def evaluate_model(model, data, label_col="label"):
     Evaluate the model on the provided data.
     """
     if label_col not in data.columns:
-        print(f"Warning: '{label_col}' column not found. Aliasing 'Class' to '{label_col}'.")
+        print(
+            f"Warning: '{label_col}' column not found. Aliasing 'Class' to '{label_col}'."
+        )
         data = data.withColumnRenamed("Class", label_col)
 
     evaluator = BinaryClassificationEvaluator(
@@ -47,7 +55,9 @@ def evaluate_model(model, data, label_col="label"):
     return auc
 
 
-def monitor_model_drift(baseline_model_path, current_model_path, test_data_path, output_path):
+def monitor_model_drift(
+    baseline_model_path, current_model_path, test_data_path, output_path
+):
     """
     Monitor model drift by comparing the performance of baseline and current models.
     """
@@ -60,6 +70,7 @@ def monitor_model_drift(baseline_model_path, current_model_path, test_data_path,
     if "features" not in test_data.columns:
         print("Creating features column using VectorAssembler...")
         from pyspark.ml.feature import VectorAssembler
+
         assembler = VectorAssembler(
             inputCols=[f"V{i}" for i in range(1, 29)] + ["Amount"], outputCol="features"
         )

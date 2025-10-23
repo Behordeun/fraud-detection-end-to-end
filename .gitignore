@@ -46,4 +46,12 @@ models/*
 *.pydevinfo
 data/drifted_data/*
 monitoring_reports/*
-src/monitoring/pokemon.py
+
+# Additional cleanup patterns
+htmlcov/
+.checkmate/
+.qodo/
+*_temporary/
+*.tmp
+*.old
+*.backup

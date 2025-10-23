@@ -1,6 +1,6 @@
-README.md
+# README.md
 
-# Credit Card Fraud Detection with MLOps
+## Credit Card Fraud Detection with MLOps
 
 This project demonstrates an end-to-end Machine Learning pipeline for Credit Card Fraud Detection, leveraging MLOps tools and best practices. It incorporates DVC, MLflow, Airflow, OpenMetadata, Prometheus, Grafana, and MinIO to manage the entire lifecycle of data, models, and infrastructure.
 
@@ -60,7 +60,7 @@ The architecture consists of the following components:
 
 ### 2. Clone the Repository
 
-```
+```bash
 git clone https://github.com/your-repo/fraud-detection-mlops.git
 cd fraud-detection-mlops
 ```
@@ -69,7 +69,7 @@ cd fraud-detection-mlops
 
 Build and start all services using Docker Compose:
 
-```
+```bash
 docker-compose up -d
 ```
 
@@ -91,7 +91,7 @@ docker-compose up -d
 
 Add, version, and push raw data:
 
-```
+```bash
 dvc init
 dvc add data/raw/creditcard_2023.csv
 dvc remote add -d minio s3://dvc-bucket
@@ -102,7 +102,7 @@ dvc push
 
 - DVC Pipeline:
 
-```
+```bash
 dvc repro
 ```
 
@@ -118,7 +118,7 @@ dvc repro
 
 ## Project Structure
 
-```
+```text
 .
 ├── Architecture.png
 ├── Dockerfile
@@ -214,7 +214,7 @@ dvc repro
 
 - Check logs:
 
-```
+```bash
 docker logs <container_name>
 ```
 
@@ -233,7 +233,7 @@ Contributions are welcome! Please follow these steps:
 1. Fork the repository.
 2. Create a feature branch:
 
-```
+```bash
 git checkout -b feature/new-feature
 ```
 

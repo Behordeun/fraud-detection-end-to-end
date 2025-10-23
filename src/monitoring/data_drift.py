@@ -1,8 +1,9 @@
+import logging
+import os
+
 import pandas as pd
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, mean, stddev
-import os
-import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -13,6 +14,7 @@ def load_data(spark, path):
     Load data from the given path using Spark.
     Handles directories properly to avoid non-data files (e.g., _SUCCESS).
     """
+
     if not os.path.exists(path):
         raise FileNotFoundError(f"Path does not exist: {path}")
 
@@ -70,15 +72,16 @@ def monitor_data_drift(baseline_data_path, current_data_path, output_path, thres
     """
     Monitor data drift by comparing statistics between baseline and current datasets.
     """
-    spark = SparkSession.builder \
-        .appName("DataDriftMonitoring") \
-        .config("spark.driver.memory", "8g") \
-        .config("spark.executor.memory", "4g") \
-        .config("spark.executor.cores", "2") \
-        .config("spark.sql.shuffle.partitions", "50") \
-        .config("spark.eventLog.enabled", "true") \
-        .config("spark.eventLog.dir", "/tmp/spark-events") \
+    spark = (
+        SparkSession.builder.appName("DataDriftMonitoring")
+        .config("spark.driver.memory", "8g")
+        .config("spark.executor.memory", "4g")
+        .config("spark.executor.cores", "2")
+        .config("spark.sql.shuffle.partitions", "50")
+        .config("spark.eventLog.enabled", "true")
+        .config("spark.eventLog.dir", "/tmp/spark-events")
         .getOrCreate()
+    )
 
     logger.info(f"Baseline data path: {baseline_data_path}")
     logger.info(f"Current data path: {current_data_path}")

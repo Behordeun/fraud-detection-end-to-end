@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 import pytest
+from pyspark.ml import Pipeline
 from pyspark.ml.classification import RandomForestClassifier
 from pyspark.ml.linalg import Vectors
 from pyspark.sql import SparkSession
@@ -55,6 +56,7 @@ def test_monitor_data_drift(mock_to_csv, spark, tmpdir):
     """
     Test monitor_data_drift computes drift and generates a report.
     """
+    # Create baseline and current data
     baseline_data = spark.createDataFrame(
         [(1.0, 2.0), (3.0, 4.0)], ["feature1", "feature2"]
     )
@@ -62,14 +64,19 @@ def test_monitor_data_drift(mock_to_csv, spark, tmpdir):
         [(1.5, 2.5), (3.5, 4.5)], ["feature1", "feature2"]
     )
 
-    baseline_path = tmpdir.join("baseline.parquet")
-    current_path = tmpdir.join("current.parquet")
+    # Write baseline and current data to directories
+    baseline_path = tmpdir.mkdir("baseline_data")
+    current_path = tmpdir.mkdir("current_data")
     output_path = tmpdir.join("data_drift_report.csv")
 
-    baseline_data.write.parquet(str(baseline_path))
-    current_data.write.parquet(str(current_path))
+    # Use mode("overwrite") to avoid PATH_ALREADY_EXISTS error
+    baseline_data.write.mode("overwrite").parquet(str(baseline_path))
+    current_data.write.mode("overwrite").parquet(str(current_path))
 
+    # Ensure monitor_data_drift works with the fixed load_data
     monitor_data_drift(str(baseline_path), str(current_path), str(output_path))
+
+    # Verify that the output report was written
     mock_to_csv.assert_called_once()
 
 
@@ -111,7 +118,6 @@ def test_monitor_model_drift_content(spark, tmpdir):
     test_data.write.parquet(str(test_data_path))
 
     rf = RandomForestClassifier(featuresCol="features", labelCol="label", numTrees=5)
-    from pyspark.ml import Pipeline
 
     pipeline = Pipeline(stages=[rf])
 
