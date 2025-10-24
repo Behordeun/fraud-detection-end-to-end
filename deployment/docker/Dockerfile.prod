@@ -1,4 +1,6 @@
 FROM python:3.9-slim
+# Build stage
+FROM python:3.9-slim as builder
 
 WORKDIR /app
 
@@ -21,6 +23,24 @@ COPY setup.py .
 
 # Install package
 RUN pip install -e .
+
+# Runtime stage
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Install only runtime dependencies
+RUN apt-get update && apt-get install -y \
+    openjdk-11-jre-headless \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set Java environment
+ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+
+# Copy installed packages from builder
+COPY --from=builder /usr/local/lib/python3.9/site-packages/ /usr/local/lib/python3.9/site-packages/
+COPY --from=builder /app/src/ ./src/
 
 # Create non-root user
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
