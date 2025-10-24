@@ -47,8 +47,10 @@ def make_predictions(model_path: str, new_data_path: str, output_path: str):
 
 
 if __name__ == "__main__":
-    MODEL_PATH = "models/random_forest_model"
-    NEW_DATA_PATH = "data/processed/new_data"
-    OUTPUT_PATH = "data/predictions"
+    from fraud_detection.utils.config import CURRENT_MODEL_DIR, PROCESSED_DATA_DIR, PREDICTIONS_DIR
+    
+    MODEL_PATH = str(CURRENT_MODEL_DIR)
+    NEW_DATA_PATH = str(PROCESSED_DATA_DIR / "new_data")
+    OUTPUT_PATH = str(PREDICTIONS_DIR)
     
     make_predictions(MODEL_PATH, NEW_DATA_PATH, OUTPUT_PATH)

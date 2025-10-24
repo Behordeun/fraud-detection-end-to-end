@@ -71,7 +71,9 @@ def evaluate_model(model_path: str, test_data_path: str):
 
 
 if __name__ == "__main__":
-    MODEL_PATH = "models/random_forest_model"
-    TEST_DATA_PATH = "data/processed/engineered/test"
+    from fraud_detection.utils.config import CURRENT_MODEL_DIR, PROCESSED_DATA_DIR
+    
+    MODEL_PATH = str(CURRENT_MODEL_DIR)
+    TEST_DATA_PATH = str(PROCESSED_DATA_DIR / "engineered" / "test")
     
     evaluate_model(MODEL_PATH, TEST_DATA_PATH)

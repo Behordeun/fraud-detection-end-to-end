@@ -63,7 +63,9 @@ def train_model(train_data_path: str, model_output_path: str):
 
 
 if __name__ == "__main__":
-    TRAIN_DATA_PATH = "data/processed/train"
-    MODEL_OUTPUT_PATH = "models/random_forest_model"
+    from fraud_detection.utils.config import PROCESSED_DATA_DIR, CURRENT_MODEL_DIR
+    
+    TRAIN_DATA_PATH = str(PROCESSED_DATA_DIR / "engineered" / "train")
+    MODEL_OUTPUT_PATH = str(CURRENT_MODEL_DIR)
 
     train_model(TRAIN_DATA_PATH, MODEL_OUTPUT_PATH)

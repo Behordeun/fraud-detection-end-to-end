@@ -13,8 +13,10 @@ app = FastAPI(title="Fraud Detection API", version="1.0.0")
 # Initialize Spark session
 spark = SparkSession.builder.appName("FraudDetectionAPI").getOrCreate()
 
+from fraud_detection.utils.config import CURRENT_MODEL_DIR
+
 # Load model at startup
-MODEL_PATH = "models/random_forest_model"
+MODEL_PATH = str(CURRENT_MODEL_DIR)
 model = None
 
 @app.on_event("startup")

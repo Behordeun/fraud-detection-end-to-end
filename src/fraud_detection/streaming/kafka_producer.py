@@ -16,7 +16,8 @@ class FraudDataProducer:
         """Generate a realistic transaction."""
         # Load sample from real data
         try:
-            df = pd.read_csv("data/raw/creditcard_2023.csv")
+            from fraud_detection.utils.config import RAW_DATA_DIR
+            df = pd.read_csv(RAW_DATA_DIR / "creditcard_2023.csv")
             sample = df.sample(1).iloc[0].to_dict()
             # Add timestamp
             sample['timestamp'] = time.time()

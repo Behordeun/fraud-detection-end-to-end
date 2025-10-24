@@ -109,7 +109,9 @@ def engineer_features(input_path: str, output_path: str):
 
 
 if __name__ == "__main__":
-    INPUT_PATH = "data/processed"
-    OUTPUT_PATH = "data/processed/engineered"
+    from fraud_detection.utils.config import PROCESSED_DATA_DIR
+    
+    INPUT_PATH = str(PROCESSED_DATA_DIR)
+    OUTPUT_PATH = str(PROCESSED_DATA_DIR / "engineered")
     
     engineer_features(INPUT_PATH, OUTPUT_PATH)

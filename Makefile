@@ -71,34 +71,37 @@ data-setup: ## Setup and verify data
 	$(PYTHON) scripts/setup_data.py
 
 preprocess: ## Run data preprocessing
-	$(PYTHON) src/data_preprocessing/preprocessing.py
+	cd src && $(PYTHON) -m fraud_detection.data.preprocessing
 
 feature-engineering: ## Run feature engineering
-	$(PYTHON) src/data_preprocessing/feature_engineering.py
+	cd src && $(PYTHON) -m fraud_detection.data.feature_engineering
 
 # Model Training
 train: ## Train basic model
-	$(PYTHON) src/models/train.py
+	cd src && $(PYTHON) -m fraud_detection.models.train
 
 evaluate: ## Evaluate model
-	$(PYTHON) src/models/evaluate.py
+	cd src && $(PYTHON) -m fraud_detection.models.evaluate
 
 predict: ## Generate predictions
-	$(PYTHON) src/models/predict.py
+	cd src && $(PYTHON) -m fraud_detection.models.predict
 
 # Advanced ML
 model-comparison: ## Run model comparison
-	$(PYTHON) src/models/model_comparison.py
+	cd src && $(PYTHON) -m fraud_detection.models.model_comparison
 
 hyperparameter-tuning: ## Run hyperparameter optimization
-	$(PYTHON) src/models/hyperparameter_tuning.py
+	cd src && $(PYTHON) -m fraud_detection.models.hyperparameter_tuning
 
 # Complete Pipelines
 pipeline: ## Run basic ML pipeline
-	$(PYTHON) scripts/run_pipeline.py
+	$(PYTHON) deployment/scripts/run_clean_pipeline.py
 
 advanced-pipeline: ## Run advanced ML pipeline with all features
-	$(PYTHON) scripts/run_advanced_pipeline.py
+	$(PYTHON) deployment/scripts/run_advanced_pipeline.py
+
+install-package: ## Install package in development mode
+	$(PIP) install -e .
 
 # Monitoring
 drift-detection: ## Run drift detection
@@ -115,30 +118,30 @@ mlflow-ui: ## Start MLflow UI
 	mlflow ui --host 0.0.0.0 --port 5000
 
 api-server: ## Start API server
-	$(PYTHON) -m uvicorn src.api.app:app --host 0.0.0.0 --port 8000
+	cd src && $(PYTHON) -m uvicorn fraud_detection.api.app:app --host 0.0.0.0 --port 8000
 
 dashboard: ## Start monitoring dashboard
-	streamlit run src/monitoring/dashboard.py
+	streamlit run src/fraud_detection/monitoring/dashboard.py
 
 # Infrastructure
 docker-up: ## Start Docker services
-	$(DOCKER_COMPOSE) up -d
+	docker-compose -f deployment/docker/docker-compose.yml up -d
 
 docker-down: ## Stop Docker services
-	$(DOCKER_COMPOSE) down
+	docker-compose -f deployment/docker/docker-compose.yml down
 
 kafka-up: ## Start Kafka infrastructure
-	$(KAFKA_COMPOSE) up -d
+	docker-compose -f deployment/docker/docker-compose-kafka.yml up -d
 
 kafka-down: ## Stop Kafka infrastructure
-	$(KAFKA_COMPOSE) down
+	docker-compose -f deployment/docker/docker-compose-kafka.yml down
 
 # Streaming
 stream-producer: ## Start Kafka producer
-	$(PYTHON) src/streaming/kafka_producer.py
+	cd src && $(PYTHON) -m fraud_detection.streaming.kafka_producer
 
 stream-consumer: ## Start Kafka consumer
-	$(PYTHON) src/streaming/kafka_consumer.py
+	cd src && $(PYTHON) -m fraud_detection.streaming.kafka_consumer
 
 # Development
 test: ## Run tests
@@ -180,10 +183,18 @@ quick-start: setup pipeline mlflow-ui ## Quick start with basic pipeline
 full-start: setup advanced-pipeline kafka-up docker-up ## Full production setup
 	@$(ECHO) "$(GREEN)Full production environment starting...$(NC)"
 
-# Production
-prod-deploy: ## Deploy to production
-	@$(ECHO) "$(YELLOW)Deploying to production...$(NC)"
-	$(DOCKER_COMPOSE) -f docker-compose.prod.yml up -d
+# Deployment
+deploy-dev: ## Deploy development environment
+	$(PYTHON) deployment/scripts/deploy.py --platform docker --environment dev
+
+deploy-prod: ## Deploy production environment
+	$(PYTHON) deployment/scripts/deploy.py --platform docker --environment prod
+
+deploy-k8s: ## Deploy to Kubernetes
+	$(PYTHON) deployment/scripts/deploy.py --platform kubernetes
+
+build-image: ## Build Docker image
+	docker build -f deployment/docker/Dockerfile.prod -t fraud-detection:latest .
 
 # Monitoring Stack
 monitoring-stack: docker-up dashboard ## Start complete monitoring stack

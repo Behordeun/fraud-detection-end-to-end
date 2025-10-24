@@ -18,8 +18,9 @@ services:
     ports:
       - "9090:9090"  # Prometheus
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-      - ./prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml
+      - ../kubernetes/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ../kubernetes/prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml
+      - prometheus-data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
@@ -83,3 +84,4 @@ volumes:
   minio-data:
   grafana-data:
   postgres-data:
+  prometheus-data:
