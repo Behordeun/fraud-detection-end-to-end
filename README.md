@@ -50,6 +50,7 @@ The system is built with scalability and reproducibility in mind, using tools su
 The architecture consists of the following components:
 
 ![Architectural Diagram](Architecture.png)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FBehordeun%2Ffraud-detection-end-to-end.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FBehordeun%2Ffraud-detection-end-to-end?ref=badge_shield)
 
 ## Setup Instructions
 
@@ -238,3 +239,7 @@ git checkout -b feature/new-feature
 ```
 
 3. Commit your changes and create a pull request.
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FBehordeun%2Ffraud-detection-end-to-end.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FBehordeun%2Ffraud-detection-end-to-end?ref=badge_large)
