@@ -24,11 +24,12 @@ def load_params() -> dict:
 
 def preprocess() -> None:
     from fraud_detection.data.preprocessing import (
+        apply_amount_scaler,
         drop_unnecessary_columns,
+        fit_amount_scaler,
         handle_missing_values,
         load_data,
         save_preprocessed_data,
-        scale_features,
         set_features_and_target,
         split_data,
     )
@@ -40,17 +41,27 @@ def preprocess() -> None:
     data = load_data(str(PROJECT_ROOT / params["data"]["raw_file"]))
     data = drop_unnecessary_columns(data)
     data = handle_missing_values(data, target)
-    data = scale_features(data)
-    if target not in data.columns:
-        raise ValueError(f"Target column '{target}' missing from processed dataset")
-    data = set_features_and_target(data, target)
 
+    # Split BEFORE scaling so the scaler is fit on training data only; fitting on
+    # the full dataset would leak held-out statistics into the transformation.
     train_df, test_df, reserve_df = split_data(
         data,
         test_size=params["split"]["test_size"],
         reserve_size=params["split"]["reserve_size"],
         seed=params["split"]["seed"],
+        target_column=target,
     )
+
+    scaler_model, assembler = fit_amount_scaler(train_df)
+    train_df = apply_amount_scaler(train_df, scaler_model, assembler)
+    test_df = apply_amount_scaler(test_df, scaler_model, assembler)
+    reserve_df = apply_amount_scaler(reserve_df, scaler_model, assembler)
+
+    # Assemble the model feature vector on each split. Reserve excludes the
+    # target (dropped during the split), so only train/test carry it.
+    train_df = set_features_and_target(train_df, target)
+    test_df = set_features_and_target(test_df, target)
+
     save_preprocessed_data(train_df, test_df, reserve_df, processed_dir)
 
 

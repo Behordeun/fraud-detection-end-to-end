@@ -64,38 +64,50 @@ def handle_missing_values(df: DataFrame, target_column: str) -> DataFrame:
     return df
 
 
-def scale_features(df: DataFrame) -> DataFrame:
-    """
-    Scale the 'Amount' column using StandardScaler and overwrite it with the scaled scalar values.
-    """
-    print("Scaling the 'Amount' column...")
+def fit_amount_scaler(df: DataFrame):
+    """Fit a StandardScaler on the training Amount column only.
 
-    # Assemble the Amount column into a feature vector
+    Returns (fitted_scaler_model, assembler). Fitting on train alone and
+    applying the result to test/reserve avoids leaking held-out distribution
+    statistics into the training transformation.
+    """
     assembler = VectorAssembler(inputCols=["Amount"], outputCol="Amount_feature")
-    df = assembler.transform(df)
-
-    # Apply StandardScaler to the Amount feature
+    assembled = assembler.transform(df)
     scaler = StandardScaler(
         inputCol="Amount_feature",
         outputCol="scaled_Amount",
         withMean=True,
         withStd=True,
     )
-    scaler_model = scaler.fit(df)
+    return scaler.fit(assembled), assembler
+
+
+def apply_amount_scaler(df: DataFrame, scaler_model, assembler) -> DataFrame:
+    """Apply an already-fitted Amount scaler to a dataset."""
+    df = assembler.transform(df)
     df = scaler_model.transform(df)
 
-    # Extract the first (and only) value from the DenseVector using a UDF
     def extract_scalar(value):
-        return float(value[0])  # Extract the first element from the vector
+        return float(value[0])
 
     extract_scalar_udf = udf(extract_scalar, DoubleType())
     df = df.withColumn("Amount", extract_scalar_udf(col("scaled_Amount")))
+    return df.drop("Amount_feature", "scaled_Amount")
 
-    # Drop the temporary columns
-    df = df.drop("Amount_feature", "scaled_Amount")
+
+def scale_features(df: DataFrame) -> DataFrame:
+    """
+    Fit and apply the Amount StandardScaler to a single dataset.
+
+    Convenience wrapper for callers that hold one dataset. The pipeline uses
+    fit_amount_scaler / apply_amount_scaler instead so the scaler is fit on the
+    training split alone and applied to the held-out splits without leakage.
+    """
+    print("Scaling the 'Amount' column...")
+    scaler_model, assembler = fit_amount_scaler(df)
+    scaled = apply_amount_scaler(df, scaler_model, assembler)
     print("Scaled 'Amount' column converted to scalar and updated the dataset.")
-
-    return df
+    return scaled
 
 
 def drop_unnecessary_columns(df: DataFrame) -> DataFrame:
@@ -134,7 +146,11 @@ def set_features_and_target(df: DataFrame, target_column: str) -> DataFrame:
 
 
 def split_data(
-    df: DataFrame, test_size: float = 0.3, reserve_size: float = 0.1, seed: int = 42
+    df: DataFrame,
+    test_size: float = 0.3,
+    reserve_size: float = 0.1,
+    seed: int = 42,
+    target_column: str = "Class",
 ):
     """
     Split the dataset into training, testing, and reserve sets.
@@ -144,8 +160,10 @@ def split_data(
         [1 - test_size - reserve_size, test_size, reserve_size], seed=seed
     )
 
-    # Remove the target variable from reserve data
-    reserve_df = reserve_df.drop("Class")
+    # Remove the target variable from reserve data (it stands in for unlabeled
+    # production traffic).
+    if target_column in reserve_df.columns:
+        reserve_df = reserve_df.drop(target_column)
 
     print(
         f"Data split complete. Training data: {train_df.count()}, "

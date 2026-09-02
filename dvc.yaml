@@ -6,6 +6,8 @@ stages:
       - src/fraud_detection/pipelines/stages.py
       - data/raw/creditcard_2023.csv
     params:
+      - data.raw_file
+      - data.processed_dir
       - data.target_column
       - split.test_size
       - split.reserve_size
@@ -22,6 +24,9 @@ stages:
       - src/fraud_detection/pipelines/stages.py
       - data/processed/train
       - data/processed/test
+    params:
+      - data.processed_dir
+      - data.engineered_dir
     outs:
       - data/processed/engineered/train
       - data/processed/engineered/test
@@ -33,6 +38,8 @@ stages:
       - src/fraud_detection/pipelines/stages.py
       - data/processed/engineered/train
     params:
+      - data.engineered_dir
+      - paths.model_dir
       - model.n_trees
       - model.max_depth
       - model.seed
@@ -46,6 +53,9 @@ stages:
       - src/fraud_detection/pipelines/stages.py
       - models/current_model
       - data/processed/engineered/test
+    params:
+      - data.engineered_dir
+      - paths.model_dir
     metrics:
       - metrics.json:
           cache: false

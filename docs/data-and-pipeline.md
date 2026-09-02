@@ -44,14 +44,30 @@ dvc metrics show
 Change a value in `params.yaml` (for example `model.n_trees`) and `dvc repro`
 re-runs only the affected stages.
 
+## Tracking the real dataset with DVC
+
+The committed sample lets CI run without any external data. The full Kaggle
+dataset is acquired and then tracked with DVC on your own machine:
+
+```bash
+python scripts/setup_data.py          # fetch data/raw/creditcard_2023.csv
+dvc add data/raw/creditcard_2023.csv  # start tracking it (creates the .dvc pointer)
+git add data/raw/creditcard_2023.csv.dvc && git commit -m "track dataset"
+dvc push                              # upload it to the remote
+```
+
+Commit the generated `.dvc` pointer so a teammate's `dvc pull` fetches the same
+data. The dataset itself is never committed to git.
+
 ## The DVC remote
 
 `.dvc/config` points at a MinIO S3 remote (`s3://dvc-bucket` on
-`http://localhost:9000`, the bucket from `docker-compose.yml`). Push and pull
-tracked data and models with:
+`http://localhost:9000`). The compose stack provisions that bucket
+automatically via the `createbuckets` service, so `dvc push` / `dvc pull` work
+once `docker compose up` has run:
 
 ```bash
-dvc push   # upload data/models to the remote
+dvc push   # upload tracked data/models to the remote
 dvc pull   # fetch them on a fresh checkout
 ```
 
