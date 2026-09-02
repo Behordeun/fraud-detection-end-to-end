@@ -18,7 +18,7 @@ python scripts/run_pipeline.py
 mlflow ui --host 0.0.0.0 --port 5000 &
 
 # Start API server
-python -m uvicorn src.api.app:app --host 0.0.0.0 --port 8000 &
+PYTHONPATH=src uvicorn fraud_detection.api.app:app --host 0.0.0.0 --port 8000 &
 
 # Start Docker services (optional)
 docker-compose up -d
@@ -32,22 +32,22 @@ docker-compose up -d
 python scripts/setup_data.py
 
 # 2. Run data preprocessing
-python src/data_preprocessing/preprocessing.py
+PYTHONPATH=src python -m fraud_detection.pipelines.stages preprocess
 
 # 3. Run feature engineering
-python src/data_preprocessing/feature_engineering.py
+PYTHONPATH=src python -m fraud_detection.pipelines.stages feature_engineering
 ```
 
 ### Phase 2: Model Training and Evaluation
 ```bash
 # 4. Train the model
-python src/models/train.py
+PYTHONPATH=src python -m fraud_detection.pipelines.stages train
 
 # 5. Evaluate the model
-python src/models/evaluate.py
+PYTHONPATH=src python -m fraud_detection.pipelines.stages evaluate
 
 # 6. Make predictions on new data
-python src/models/predict.py
+PYTHONPATH=src python -m fraud_detection.models.predict
 ```
 
 ### Phase 3: Services and Monitoring
@@ -56,7 +56,7 @@ python src/models/predict.py
 mlflow server --host 0.0.0.0 --port 5000
 
 # 8. Start prediction API
-python -m uvicorn src.api.app:app --host 0.0.0.0 --port 8000
+PYTHONPATH=src uvicorn fraud_detection.api.app:app --host 0.0.0.0 --port 8000
 
 # 9. Start infrastructure services
 docker-compose up -d
@@ -206,11 +206,11 @@ curl -X POST "http://localhost:8000/predict" \
 
 ## 📈 Next Steps
 
-1. **Hyperparameter Tuning**: Modify `src/models/train.py`
-2. **Feature Engineering**: Add features in `src/data_preprocessing/feature_engineering.py`
+1. **Hyperparameter Tuning**: Modify `src/fraud_detection/models/train.py`
+2. **Feature Engineering**: Add features in `src/fraud_detection/data/feature_engineering.py`
 3. **Model Comparison**: Add different algorithms
 4. **Real-time Monitoring**: Setup Grafana dashboards
-5. **Production Deployment**: Use Kubernetes configs in `k8s/`
+5. **Production Deployment**: Use Kubernetes manifests in `deployment/kubernetes/`
 
 ## 🔄 Continuous Integration
 

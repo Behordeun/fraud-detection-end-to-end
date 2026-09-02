@@ -66,10 +66,14 @@ fraud-detection serve --host 0.0.0.0 --port 8000
 
 ### Module Imports
 ```bash
-# Run as modules
-python -m fraud_detection.data.preprocessing
-python -m fraud_detection.models.train
-python -m fraud_detection.api.app
+# Run the DVC pipeline stages through the shared entry point
+PYTHONPATH=src python -m fraud_detection.pipelines.stages preprocess
+PYTHONPATH=src python -m fraud_detection.pipelines.stages feature_engineering
+PYTHONPATH=src python -m fraud_detection.pipelines.stages train
+PYTHONPATH=src python -m fraud_detection.pipelines.stages evaluate
+
+# Serve the API
+PYTHONPATH=src uvicorn fraud_detection.api.app:app --host 0.0.0.0 --port 8000
 ```
 
 ### Makefile Commands (Updated)
@@ -127,7 +131,7 @@ python src/api/app.py       # Import errors
 ### After (Clean Structure)
 ```bash
 fraud-detection train       # CLI interface
-python -m fraud_detection.models.train  # Module execution
+python -m fraud_detection.pipelines.stages train  # Module execution
 ```
 
 ## 🔄 Updated Workflows

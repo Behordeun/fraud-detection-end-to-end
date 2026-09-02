@@ -13,7 +13,7 @@ All 5 advanced features have been implemented to make this a production-grade ML
 
 ### Usage
 ```bash
-python src/models/hyperparameter_tuning.py
+PYTHONPATH=src python -m fraud_detection.models.hyperparameter_tuning
 ```
 
 ### Results
@@ -25,13 +25,13 @@ python src/models/hyperparameter_tuning.py
 
 ### Features
 - **Multiple algorithms**: RandomForest, GradientBoosting, LogisticRegression
-- **Comprehensive metrics**: AUC, Precision, Recall, F1
+- **Full metric set**: AUC, Precision, Recall, F1
 - **Automated selection** of best performing model
 - **Results export** to CSV and MLflow
 
 ### Usage
 ```bash
-python src/models/model_comparison.py
+PYTHONPATH=src python -m fraud_detection.models.model_comparison
 ```
 
 ### Output
@@ -71,14 +71,14 @@ python src/streaming/kafka_consumer.py &
 
 ### Usage
 ```bash
-python src/monitoring/advanced_drift_detection.py
+PYTHONPATH=src python -m fraud_detection.monitoring.advanced_drift_detection
 ```
 
 ### Capabilities
 - Feature-level drift detection
 - Model performance monitoring
 - Automated alerting
-- Comprehensive reporting
+- Detailed reporting
 
 ## 5. 🔄 CI/CD Pipeline with GitHub Actions
 
@@ -115,10 +115,10 @@ docker-compose up -d
 mlflow ui --host 0.0.0.0 --port 5000 &
 
 # API server
-python -m uvicorn src.api.app:app --host 0.0.0.0 --port 8000 &
+PYTHONPATH=src uvicorn fraud_detection.api.app:app --host 0.0.0.0 --port 8000 &
 
 # Monitoring dashboard
-streamlit run src/monitoring/dashboard.py &
+PYTHONPATH=src streamlit run src/fraud_detection/monitoring/dashboard.py &
 
 # Real-time streaming
 python src/streaming/kafka_producer.py &
