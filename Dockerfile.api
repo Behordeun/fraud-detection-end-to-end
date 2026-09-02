@@ -5,23 +5,34 @@
 # artifact: the FastAPI scoring service and its runtime, nothing else.
 FROM python:3.11-slim
 
-# Spark needs a JRE at runtime.
+# Spark needs a JRE at runtime. The slim base tracks Debian 13, which ships
+# openjdk-21 (not 17); PySpark 3.5 supports Java 17 and 21. JAVA_HOME is left
+# unset: openjdk installs java at /usr/bin/java via Debian alternatives on any
+# architecture, and PySpark falls back to java on PATH, so the image builds and
+# runs on both amd64 (CI) and arm64 (Apple silicon) without an arch-specific path.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends openjdk-17-jre-headless \
+    && apt-get install -y --no-install-recommends openjdk-21-jre-headless \
     && rm -rf /var/lib/apt/lists/*
 
-ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Install dependencies first so the layer caches across code changes.
+# Install dependencies first so the layer caches across code changes. Versions
+# are pinned in requirements.txt; --only-binary is not used because pyspark
+# ships as an sdist with no wheel, so a binary-only install cannot resolve it.
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # The package lives under src/; the app imports it as fraud_detection.*
 COPY src/ ./src/
 ENV PYTHONPATH=/app/src
+
+# Run as an unprivileged user. The service reads models and serves HTTP; it has
+# no reason to run as root.
+RUN useradd --create-home --uid 10001 appuser \
+    && chown -R appuser:appuser /app
+USER appuser
 
 # The trained PipelineModel and the fitted Amount scaler are mounted or baked in
 # at deploy time under /app/models; the API reads them via the config paths.
