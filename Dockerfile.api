@@ -1,0 +1,30 @@
+# Serving image for the fraud-detection API only.
+#
+# The image under deployment/docker/ bundles the full local stack (Prometheus,
+# Grafana, MinIO, Airflow) for development. This image is the deployable
+# artifact: the FastAPI scoring service and its runtime, nothing else.
+FROM python:3.11-slim
+
+# Spark needs a JRE at runtime.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openjdk-17-jre-headless \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# Install dependencies first so the layer caches across code changes.
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# The package lives under src/; the app imports it as fraud_detection.*
+COPY src/ ./src/
+ENV PYTHONPATH=/app/src
+
+# The trained PipelineModel and the fitted Amount scaler are mounted or baked in
+# at deploy time under /app/models; the API reads them via the config paths.
+EXPOSE 8000
+
+CMD ["uvicorn", "fraud_detection.api.app:app", "--host", "0.0.0.0", "--port", "8000"]

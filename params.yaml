@@ -17,3 +17,9 @@ model:
 paths:
   model_dir: models/current_model
   metrics_file: metrics.json
+
+# CI gate: the pipeline fails if the held-out AUC drops below this floor, so a
+# regression cannot merge or be published even when dvc repro itself succeeds.
+gate:
+  metric: auc
+  min_auc: 0.90
