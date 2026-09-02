@@ -23,7 +23,7 @@ jobs:
         pip install -r requirements.txt
     
     - name: Run drift detection
-      run: python src/monitoring/advanced_drift_detection.py
+      run: PYTHONPATH=src python -m fraud_detection.monitoring.advanced_drift_detection
       env:
         MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
     

@@ -1,41 +1,28 @@
-import json
-import os
-
 import pandas as pd
-from pyspark.ml import PipelineModel
-from pyspark.ml.classification import RandomForestClassificationModel
 from pyspark.ml.evaluation import BinaryClassificationEvaluator
 from pyspark.sql import SparkSession
 
+from fraud_detection.data.feature_engineering import apply_feature_transforms
+from fraud_detection.models.loader import load_model, pipeline_assembles_features
 
-def load_model(model_path):
-    """
-    Load the model from the given path, detecting whether it is a PipelineModel
-    or a single stage model like RandomForestClassificationModel.
-    """
-    metadata_path = os.path.join(model_path, "metadata")
-    if not os.path.exists(metadata_path):
-        raise FileNotFoundError(
-            f"Metadata not found in the model path: {metadata_path}"
-        )
 
-    # Metadata for the saved model
-    metadata_file = os.path.join(metadata_path, "part-00000")
-    if os.path.isfile(metadata_file):
-        with open(metadata_file, "r") as f:
-            metadata = json.load(f)
-            model_class = metadata.get("class")
-            if model_class == "org.apache.spark.ml.PipelineModel":
-                return PipelineModel.load(model_path)
-            elif (
-                model_class
-                == "org.apache.spark.ml.classification.RandomForestClassificationModel"
-            ):
-                return RandomForestClassificationModel.load(model_path)
-            else:
-                raise ValueError(f"Unsupported model class: {model_class}")
-    else:
-        raise ValueError(f"Metadata file not found in path: {metadata_path}")
+def _prepare_drift_input(model, test_data):
+    """Shape the drift input to match how the model was trained.
+
+    A PipelineModel that assembles its own vector needs the engineered source
+    columns, not a stale raw ``features`` vector, so it does not score on a
+    different feature set than training (the same skew fixed in serving). Apply
+    the shared feature-engineering transforms and drop any stale vector so the
+    pipeline's assembler builds the features.
+    """
+    if pipeline_assembles_features(model):
+        if "features" in test_data.columns:
+            test_data = test_data.drop("features")
+        test_data = apply_feature_transforms(test_data)
+        string_cols = [n for n, d in test_data.dtypes if d == "string"]
+        if string_cols:
+            test_data = test_data.drop(*string_cols)
+    return test_data
 
 
 def evaluate_model(model, data, label_col="label"):
@@ -66,27 +53,23 @@ def monitor_model_drift(
     print("Loading test data...")
     test_data = spark.read.parquet(test_data_path)
 
-    # Ensure features column exists if missing
-    if "features" not in test_data.columns:
-        print("Creating features column using VectorAssembler...")
-        from pyspark.ml.feature import VectorAssembler
-
-        assembler = VectorAssembler(
-            inputCols=[f"V{i}" for i in range(1, 29)] + ["Amount"], outputCol="features"
-        )
-        test_data = assembler.transform(test_data)
-
     print("Loading baseline model...")
     baseline_model = load_model(baseline_model_path)
 
     print("Loading current model...")
     current_model = load_model(current_model_path)
 
+    # Shape the input to match each model: a PipelineModel assembles its own
+    # vector from engineered columns, so a stale raw features vector would make
+    # it score a different feature set than it was trained on.
+    baseline_data = _prepare_drift_input(baseline_model, test_data)
+    current_data = _prepare_drift_input(current_model, test_data)
+
     print("Evaluating baseline model...")
-    baseline_auc = evaluate_model(baseline_model, test_data)
+    baseline_auc = evaluate_model(baseline_model, baseline_data)
 
     print("Evaluating current model...")
-    current_auc = evaluate_model(current_model, test_data)
+    current_auc = evaluate_model(current_model, current_data)
 
     drift_detected = abs(current_auc - baseline_auc) > 0.05
 

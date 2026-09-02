@@ -84,3 +84,59 @@ jobs:
 
     - name: Show tracked metrics
       run: dvc metrics show
+
+    - name: Gate on held-out AUC
+      run: |
+        MIN_AUC=$(python -c "import yaml; print(yaml.safe_load(open('params.yaml'))['gate']['min_auc'])")
+        METRIC=$(python -c "import yaml; print(yaml.safe_load(open('params.yaml'))['gate']['metric'])")
+        python scripts/check_metrics_gate.py --metrics metrics.json --metric "$METRIC" --min "$MIN_AUC"
+
+  deploy:
+    name: Build and publish serving image
+    needs: reproduce-pipeline
+    # Publish only on a merge to main, after the pipeline gate passed. PRs and
+    # the nightly schedule run the pipeline + gate but do not publish.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build and push the API image
+      uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
+      with:
+        context: .
+        file: Dockerfile.api
+        push: true
+        tags: |
+          ghcr.io/${{ github.repository }}/fraud-api:latest
+          ghcr.io/${{ github.repository }}/fraud-api:${{ github.sha }}
+
+    - name: Deploy to cluster
+      # Applies the manifests only when a kubeconfig secret is configured.
+      # Without it the step reports that the credential is missing and skips,
+      # rather than reporting a fake success.
+      env:
+        KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+      run: |
+        if [ -z "$KUBE_CONFIG" ]; then
+          echo "KUBE_CONFIG secret not set; image published to GHCR but no cluster deploy."
+          echo "Set the KUBE_CONFIG repository secret to enable the cluster rollout."
+          exit 0
+        fi
+        mkdir -p ~/.kube
+        printf '%s' "$KUBE_CONFIG" > ~/.kube/config
+        chmod 600 ~/.kube/config
+        kubectl -n fraud-detection set image deployment/fraud-detection-api \
+          api=ghcr.io/${{ github.repository }}/fraud-api:${{ github.sha }}
+        kubectl -n fraud-detection rollout status deployment/fraud-detection-api --timeout=120s
