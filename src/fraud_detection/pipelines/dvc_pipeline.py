@@ -1,7 +1,7 @@
 import os
 import subprocess
 
-from src.fraud_detection.utils.utils import (
+from fraud_detection.utils.utils import (
     check_data_quality,
     generate_drift_report,
     get_spark_session,

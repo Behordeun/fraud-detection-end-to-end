@@ -91,11 +91,14 @@ def simulate_data_drift(
     if n_samples <= total_rows:
         drifted_data = original_data.limit(n_samples)
     else:
-        top_up_fraction = (n_samples - total_rows) / total_rows
-        extra = original_data.sample(
-            withReplacement=True, fraction=top_up_fraction, seed=random_state
-        )
-        drifted_data = original_data.union(extra).limit(n_samples)
+        # Deterministically repeat the drifted rows to reach exactly n_samples,
+        # rather than probabilistic sampling which cannot guarantee the count.
+        rows_needed = n_samples - total_rows
+        repetitions = (rows_needed + total_rows - 1) // total_rows
+        extra = original_data
+        for _ in range(repetitions - 1):
+            extra = extra.union(original_data)
+        drifted_data = original_data.union(extra.limit(rows_needed))
 
     return drifted_data
 

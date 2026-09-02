@@ -2,7 +2,7 @@ import subprocess
 
 import mlflow
 
-from src.fraud_detection.utils.utils import (
+from fraud_detection.utils.utils import (
     handle_error,
     load_config,
     log_metrics_to_mlflow,

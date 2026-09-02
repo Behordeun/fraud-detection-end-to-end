@@ -62,7 +62,7 @@ def main():
     print("# Start MLflow UI")
     print("mlflow ui --host 0.0.0.0 --port 5000")
     print("\n# Start API server")
-    print("python -m uvicorn src.api.app:app --host 0.0.0.0 --port 8000")
+    print("python -m uvicorn fraud_detection.api.app:app --host 0.0.0.0 --port 8000")
     print("\n# Start monitoring dashboard")
     print("streamlit run src/monitoring/dashboard.py")
     print("\n# Start all infrastructure")

@@ -5,9 +5,29 @@ import mlflow
 from pyspark.ml.classification import RandomForestClassificationModel
 from pyspark.ml.linalg import VectorUDT
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, lit
+from pyspark.sql.functions import col, lit, udf
+from pyspark.sql.types import DoubleType
 
 REQUIRED_COLUMNS = ["features"]
+
+
+def _fraud_probability_column(predictions):
+    """Extract the class-1 (fraud) probability as a scalar column.
+
+    The classifier emits a ``probability`` vector [P(legit), P(fraud)]; the
+    monitoring dashboard consumes the fraud side as a scalar. When a model emits
+    no probability vector, default the scalar to 0.0 so the column always exists.
+    """
+    if "probability" not in predictions.columns:
+        return predictions.withColumn("fraud_probability", lit(0.0))
+
+    extract_fraud_prob = udf(
+        lambda v: float(v[1]) if v is not None and len(v) > 1 else 0.0,
+        DoubleType(),
+    )
+    return predictions.withColumn(
+        "fraud_probability", extract_fraud_prob(col("probability"))
+    )
 
 
 def make_predictions(
@@ -50,6 +70,9 @@ def make_predictions(
     # downstream consumers always see the column.
     if "prediction" not in predictions.columns:
         predictions = predictions.withColumn("prediction", lit(0.0))
+
+    # The monitoring dashboard consumes a scalar fraud_probability column.
+    predictions = _fraud_probability_column(predictions)
 
     result = predictions.select(
         "*",
