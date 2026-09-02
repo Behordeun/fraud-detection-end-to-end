@@ -62,8 +62,8 @@ The architecture consists of the following components:
 ### 2. Clone the Repository
 
 ```bash
-git clone https://github.com/your-repo/fraud-detection-mlops.git
-cd fraud-detection-mlops
+git clone https://github.com/Behordeun/fraud-detection-end-to-end.git
+cd fraud-detection-end-to-end
 ```
 
 ### 3. Build and Run Docker Compose
@@ -71,7 +71,7 @@ cd fraud-detection-mlops
 Build and start all services using Docker Compose:
 
 ```bash
-docker-compose up -d
+docker compose --env-file .env -f deployment/docker/docker-compose.yml up -d
 ```
 
 ### 4. Access Services
@@ -121,79 +121,35 @@ dvc repro
 
 ```text
 .
-├── Architecture.png
-├── Dockerfile
+├── Dockerfile.api              # Minimal FastAPI serving image (non-root)
 ├── README.md
 ├── SECURITY.md
-├── Untitled Diagram.drawio
-├── airflow
-│   ├── airflow.cfg
-│   └── dags
-│       └── airflow_dvc_mlflow_dag.py
-├── config
-│   └── global_config.yml
-├── data
-│   ├── dvc.yml
-│   ├── processed
-│   └── raw
-│       └── creditcard_2023.csv
-├── docker-compose.yml
-├── generate_tree.sh
-├── get-pip.py
-├── k8s
-│   ├── airflow
-│   │   └── airflow-deployment.yaml
-│   ├── grafana
-│   │   └── grafana-deployment.yaml
-│   ├── minio
-│   │   └── minio-deployment.yaml
-│   ├── openmetadata
-│   │   └── openmetadata-deployment.yaml
-│   └── prometheus
-│       ├── prometheus-deployment.yaml
-│       └── prometheus.yml
-├── logs
-├── openmetadata
-│   ├── __init__.py
-│   ├── config.yaml
-│   ├── metadata_pipeline.py
-│   └── schemas
-│       ├── data_schema.yaml
-│       └── model_schema.yaml
-├── plugins
-├── project_structure.md
-├── pytest.ini
-├── requirements-2.txt
-├── requirements.txt
-├── src
-│   ├── __init__.py
-│   ├── data_preprocessing
-│   │   ├── __init__.py
-│   │   ├── feature_engineering.py
-│   │   └── preprocessing.py
-│   ├── models
-│   │   ├── __init__.py
-│   │   ├── evaluate.py
-│   │   ├── predict.py
-│   │   └── train.py
-│   ├── monitoring
-│   │   ├── __init__.py
-│   │   ├── data_drift.py
-│   │   └── model_drift.py
-│   ├── pipelines
-│   │   ├── __init__.py
-│   │   ├── dvc_pipeline.py
-│   │   ├── mlflow_pipeline.py
-│   │   └── pipeline_config.yml
-│   └── utils.py
-├── supervisord.conf
-└── tests
-    ├── conftest.py
-    ├── test_data_preprocessing.py
-    ├── test_drift_detection.py
-    ├── test_models.py
-    └── test_pipelines.py
+├── requirements.txt            # Pinned dependencies (single file)
+├── setup.py                    # Installable package + fraud-detection CLI
+├── params.yaml                 # Data, split, model, path, and CI gate params
+├── dvc.yaml                    # preprocess -> feature_engineering -> train -> evaluate
+├── .github/workflows/          # lint, test, coverage, ml-pipeline, model-monitoring, retrain
+├── airflow/                    # Optional Airflow DAG
+├── config/                     # global_config.yml
+├── deployment/
+│   ├── docker/                 # Compose stacks + serving/infra Dockerfiles
+│   └── kubernetes/             # Manifests (api, grafana, minio, prometheus, ...)
+├── docs/                       # data-and-pipeline.md
+├── openmetadata/               # Metadata pipeline config + schemas
+├── scripts/                    # setup_data.py, check_metrics_gate.py, pipeline runners
+├── src/
+│   └── fraud_detection/        # Package installed as `fraud_detection`
+│       ├── api/                # app.py (/health, /predict, /metrics) + metrics.py
+│       ├── data/               # preprocessing.py, feature_engineering.py
+│       ├── models/             # train, evaluate, predict, loader, serving, registry
+│       ├── monitoring/         # data_drift, model_drift, advanced_drift_detection
+│       ├── pipelines/          # stages.py (DVC entry point) + dvc/mlflow pipelines
+│       ├── streaming/          # kafka_producer.py, kafka_consumer.py
+│       └── utils/              # config.py, utils.py
+└── tests/
 ```
+
+See [project_structure.md](project_structure.md) for the full annotated tree.
 
 ## Monitoring and Alerts
 
