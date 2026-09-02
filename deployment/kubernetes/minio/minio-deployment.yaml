@@ -69,9 +69,15 @@ spec:
         - name: MINIO_ENDPOINT
           value: "http://minio:9000"
         - name: MINIO_ACCESS_KEY
-          value: "minioadmin"
+          valueFrom:
+            secretKeyRef:
+              name: minio-credentials
+              key: access-key
         - name: MINIO_SECRET_KEY
-          value: "minioadmin"
+          valueFrom:
+            secretKeyRef:
+              name: minio-credentials
+              key: secret-key
         volumeMounts:
         - name: openmetadata-data
           mountPath: /data

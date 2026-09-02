@@ -10,6 +10,13 @@ scrape_configs:
   - targets:
     - "localhost:9090" # Prometheus server metrics
 
+# Scrape the fraud-detection API's /metrics endpoint
+- job_name: "fraud-api"
+  metrics_path: /metrics
+  static_configs:
+  - targets:
+    - "fraud-detection-api-service:8000" # API service in the fraud-detection namespace
+
 # Scrape OpenMetadata server metrics
 - job_name: "openmetadata"
   static_configs:

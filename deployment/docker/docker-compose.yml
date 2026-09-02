@@ -6,8 +6,8 @@ services:
       - "9000:9000"  # MinIO API
       - "9001:9001"  # MinIO Console
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?set MINIO_SECRET_KEY in .env}
     command: server /data --console-address ":9001"
     volumes:
       - minio-data:/data
@@ -17,9 +17,12 @@ services:
     image: quay.io/minio/mc
     depends_on:
       - minio
+    environment:
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?set MINIO_SECRET_KEY in .env}
     entrypoint: >
       /bin/sh -c "
-      until (/usr/bin/mc alias set local http://minio:9000 minioadmin minioadmin) do sleep 1; done;
+      until (/usr/bin/mc alias set local http://minio:9000 \"$MINIO_ACCESS_KEY\" \"$MINIO_SECRET_KEY\") do sleep 1; done;
       /usr/bin/mc mb --ignore-existing local/dvc-bucket;
       exit 0;
       "

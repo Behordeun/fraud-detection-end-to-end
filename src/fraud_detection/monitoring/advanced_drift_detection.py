@@ -5,7 +5,9 @@ import mlflow
 import numpy as np
 import pandas as pd
 from scipy import stats
-from sklearn.metrics import jensen_shannon_distance
+from scipy.spatial.distance import jensenshannon
+
+from fraud_detection.utils.config import DRIFT_RETRAIN_PCT
 
 
 class AdvancedDriftDetector:
@@ -63,9 +65,7 @@ class AdvancedDriftDetector:
                     self.reference_data[column], bins=50, density=True
                 )
                 new_hist, _ = np.histogram(new_data[column], bins=50, density=True)
-                js_distance = jensen_shannon_distance(
-                    ref_hist + 1e-10, new_hist + 1e-10
-                )
+                js_distance = float(jensenshannon(ref_hist + 1e-10, new_hist + 1e-10))
 
                 drift_results[column] = {
                     "psi": psi,
@@ -113,17 +113,25 @@ class AdvancedDriftDetector:
         feature_drift = self.detect_feature_drift(new_data)
 
         # Summary statistics
+        drift_pct = (
+            sum(1 for f in feature_drift.values() if f["drift_detected"])
+            / len(feature_drift)
+            * 100
+            if feature_drift
+            else 0.0
+        )
         drift_summary = {
             "timestamp": datetime.now().isoformat(),
             "total_features": len(feature_drift),
             "drifted_features": sum(
                 1 for f in feature_drift.values() if f["drift_detected"]
             ),
-            "drift_percentage": sum(
-                1 for f in feature_drift.values() if f["drift_detected"]
-            )
-            / len(feature_drift)
-            * 100,
+            "drift_percentage": drift_pct,
+            # Recommend retraining when drift crosses the configured threshold.
+            # The scheduled workflow reads this flag to decide whether to fire
+            # the retrain path.
+            "retrain_recommended": drift_pct >= DRIFT_RETRAIN_PCT,
+            "retrain_threshold_pct": DRIFT_RETRAIN_PCT,
             "feature_drift_details": feature_drift,
         }
 
@@ -148,5 +156,8 @@ class AdvancedDriftDetector:
 
 
 if __name__ == "__main__":
+    import sys
+
+    new_data_path = sys.argv[1] if len(sys.argv) > 1 else "data/processed/test"
     detector = AdvancedDriftDetector()
-    detector.generate_drift_report("data/processed/test")
+    detector.generate_drift_report(new_data_path)

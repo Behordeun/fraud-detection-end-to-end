@@ -8,31 +8,67 @@ on:
 jobs:
   drift-detection:
     runs-on: ubuntu-latest
-    
+    permissions:
+      contents: read
+      actions: write   # dispatch the retrain workflow when drift is high
+
     steps:
-    - uses: actions/checkout@v3
-    
+    - uses: actions/checkout@v4
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
-    
+        python-version: '3.11'
+
+    - name: Install Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-    
-    - name: Run drift detection
-      run: PYTHONPATH=src python -m fraud_detection.monitoring.advanced_drift_detection
+
+    - name: Produce processed data on the sample
+      run: |
+        cp data/raw/creditcard_sample.csv data/raw/creditcard_2023.csv
+        PYTHONPATH=src python -m fraud_detection.pipelines.stages preprocess
       env:
-        MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
-    
+        MLFLOW_TRACKING_URI: file:./mlruns
+
+    - name: Run drift detection
+      run: |
+        PYTHONPATH=src python -m fraud_detection.monitoring.advanced_drift_detection \
+          data/processed/new_data
+      env:
+        MLFLOW_TRACKING_URI: file:./mlruns
+
     - name: Upload drift report
-      uses: actions/upload-artifact@v3
+      if: always()
+      uses: actions/upload-artifact@v4
       with:
         name: drift-report
         path: drift_report.json
-    
+
+    - name: Trigger retraining when drift is high
+      run: |
+        if [ ! -f drift_report.json ]; then
+          echo "No drift report produced; skipping retrain check."
+          exit 0
+        fi
+        RECOMMENDED=$(python -c "import json; print(json.load(open('drift_report.json')).get('retrain_recommended', False))")
+        PCT=$(python -c "import json; print(json.load(open('drift_report.json')).get('drift_percentage', 0))")
+        if [ "$RECOMMENDED" = "True" ]; then
+          echo "Drift at ${PCT}% recommends retraining; dispatching the ML pipeline."
+          gh workflow run ml-pipeline.yml --ref "${{ github.ref_name }}"
+        else
+          echo "Drift at ${PCT}% is below the retrain threshold; no retrain."
+        fi
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Notify on high drift
       if: failure()
       uses: 8398a7/action-slack@v3

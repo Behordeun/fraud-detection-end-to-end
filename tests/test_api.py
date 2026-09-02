@@ -95,3 +95,32 @@ def test_predict_503_when_model_unloaded(app_module):
         assert exc_info.value.status_code == 503
     finally:
         app_module.model, app_module.amount_scaler = saved_model, saved_scaler
+
+
+def test_metrics_endpoint_exposes_prometheus_text(app_module):
+    """The /metrics endpoint returns Prometheus text including our collectors."""
+    resp = asyncio.run(app_module.metrics())
+    body = resp.body.decode() if hasattr(resp.body, "decode") else str(resp.body)
+    assert "fraud_prediction_requests_total" in body
+    assert "fraud_model_loaded" in body
+
+
+def test_predict_increments_prediction_counter(app_module):
+    """A successful prediction increments the outcome counter."""
+    from fraud_detection.api.metrics import PREDICTION_REQUESTS
+
+    before = sum(
+        s.value
+        for m in PREDICTION_REQUESTS.collect()
+        for s in m.samples
+        if s.name.endswith("_total")
+    )
+    transaction = app_module.TransactionData(**_raw_row(amount=500.0))
+    asyncio.run(app_module.predict_fraud(transaction))
+    after = sum(
+        s.value
+        for m in PREDICTION_REQUESTS.collect()
+        for s in m.samples
+        if s.name.endswith("_total")
+    )
+    assert after > before

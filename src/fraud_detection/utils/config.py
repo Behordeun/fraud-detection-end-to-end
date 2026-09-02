@@ -38,6 +38,13 @@ MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "fraud-transactions")
 
+# MinIO / S3 object store. Credentials come from the environment; there is no
+# hardcoded default so a missing value fails loudly instead of silently using a
+# well-known dev credential in a real deployment.
+MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "http://localhost:9000")
+MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY")
+MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY")
+
 # Model configuration
 DEFAULT_MODEL_PARAMS = {
     "random_forest": {"n_estimators": 100, "max_depth": 10, "random_state": 42}
@@ -49,3 +56,7 @@ DRIFT_THRESHOLDS = {
     "ks_p_value_threshold": 0.05,
     "js_distance_threshold": 0.1,
 }
+
+# Retraining is recommended when the share of drifted features exceeds this
+# percentage. The drift job flags it; a human or the scheduled workflow acts.
+DRIFT_RETRAIN_PCT = float(os.getenv("DRIFT_RETRAIN_PCT", "30.0"))
