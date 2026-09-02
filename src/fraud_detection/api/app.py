@@ -1,7 +1,5 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from pyspark.ml.classification import RandomForestClassificationModel
-from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import SparkSession
 
 app = FastAPI(title="Fraud Detection API", version="1.0.0")
@@ -9,21 +7,32 @@ app = FastAPI(title="Fraud Detection API", version="1.0.0")
 # Initialize Spark session
 spark = SparkSession.builder.appName("FraudDetectionAPI").getOrCreate()
 
-from fraud_detection.utils.config import CURRENT_MODEL_DIR  # noqa: E402
+from fraud_detection.models.loader import load_model  # noqa: E402
+from fraud_detection.models.serving import (  # noqa: E402
+    build_serving_features,
+    load_amount_scaler,
+)
+from fraud_detection.utils.config import (  # noqa: E402
+    AMOUNT_SCALER_DIR,
+    CURRENT_MODEL_DIR,
+)
 
-# Load model at startup
+# Load model + fitted scaler at startup
 MODEL_PATH = str(CURRENT_MODEL_DIR)
+SCALER_PATH = str(AMOUNT_SCALER_DIR)
 model = None
+amount_scaler = None
 
 
 @app.on_event("startup")
-async def load_model():
-    global model
+async def load_artifacts():
+    global model, amount_scaler
     try:
-        model = RandomForestClassificationModel.load(MODEL_PATH)
-        print("Model loaded successfully")
+        model = load_model(MODEL_PATH)
+        amount_scaler = load_amount_scaler(SCALER_PATH)
+        print("Model and Amount scaler loaded successfully")
     except Exception as e:
-        print(f"Error loading model: {e}")
+        print(f"Error loading serving artifacts: {e}")
 
 
 class TransactionData(BaseModel):
@@ -72,34 +81,40 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "model_loaded": model is not None}
+    return {
+        "status": "healthy",
+        "model_loaded": model is not None and amount_scaler is not None,
+    }
 
 
 @app.post("/predict", response_model=PredictionResponse)
 async def predict_fraud(transaction: TransactionData):
-    if model is None:
+    if model is None or amount_scaler is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
 
     try:
-        # Convert to DataFrame
+        # Reproduce the training features from the raw request: scale Amount with
+        # the fitted scaler, apply the shared feature-engineering transforms,
+        # then let the PipelineModel's assembler build the vector. This is the
+        # same code path training used, so there is no training/serving skew.
         data_dict = transaction.dict()
-        df = spark.createDataFrame([data_dict])
+        raw_df = spark.createDataFrame([data_dict])
+        features_df = build_serving_features(raw_df, amount_scaler)
 
-        # Create features vector
-        feature_cols = list(data_dict.keys())
-        assembler = VectorAssembler(inputCols=feature_cols, outputCol="features")
-        df_with_features = assembler.transform(df)
+        prediction = model.transform(features_df)
 
-        # Make prediction
-        prediction = model.transform(df_with_features)
-
-        # Extract results
         result = prediction.select("prediction", "probability").collect()[0]
         is_fraud = bool(result["prediction"])
         prob_array = result["probability"].toArray()
+        # A single-class model emits a length-1 probability vector; there is no
+        # class-1 probability to report, so fail clearly instead of IndexError.
+        if len(prob_array) < 2:
+            raise HTTPException(
+                status_code=500,
+                detail="Model returned a single-class probability vector",
+            )
         fraud_prob = float(prob_array[1])  # Probability of fraud (class 1)
 
-        # Determine confidence level
         if fraud_prob > 0.8:
             confidence = "high"
         elif fraud_prob > 0.6:
@@ -111,6 +126,10 @@ async def predict_fraud(transaction: TransactionData):
             is_fraud=is_fraud, fraud_probability=fraud_prob, confidence=confidence
         )
 
+    except HTTPException:
+        # Already a well-formed HTTP error (e.g. single-class vector); propagate
+        # it rather than masking it as a generic 500.
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
 

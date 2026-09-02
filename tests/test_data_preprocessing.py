@@ -144,10 +144,11 @@ def test_split_data(spark):
     """
     Test that split_data splits the dataset correctly.
     """
-    # Sample data
-    data = spark.createDataFrame(
-        [(1, 200.0), (2, 300.0), (3, 400.0), (4, 500.0)], ["id", "Amount"]
-    )
+    # randomSplit samples per partition, so a handful of rows spread across a
+    # multi-core runner's partitions can yield an empty split. Use enough rows
+    # on a single partition for the split proportions to hold deterministically.
+    rows = [(i, float(i * 100)) for i in range(1, 101)]
+    data = spark.createDataFrame(rows, ["id", "Amount"]).coalesce(1)
 
     # Call the function
     train_data, test_data, reserve_data = split_data(

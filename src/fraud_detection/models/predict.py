@@ -2,11 +2,13 @@ import logging
 from typing import Optional
 
 import mlflow
-from pyspark.ml.classification import RandomForestClassificationModel
 from pyspark.ml.linalg import VectorUDT
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, lit, udf
 from pyspark.sql.types import DoubleType
+
+from fraud_detection.data.feature_engineering import apply_feature_transforms
+from fraud_detection.models.loader import load_model, pipeline_assembles_features
 
 REQUIRED_COLUMNS = ["features"]
 
@@ -38,8 +40,12 @@ def make_predictions(
 ):
     """Score new data with a trained model and write the predictions.
 
-    The input data must carry a ``features`` vector column. Pass ``partition_by``
-    to write the parquet output partitioned by a column (e.g. ``prediction``).
+    For a bare classifier the input must carry a ``features`` vector column. For
+    a ``PipelineModel`` the input carries the (already Amount-scaled) raw and
+    engineered source columns: this function applies the shared
+    ``apply_feature_transforms`` chain so the batch path produces the same
+    features the model trained on, then the model's own assembler builds the
+    vector. Pass ``partition_by`` to partition the parquet output by a column.
     """
     logger = logging.getLogger(__name__)
     spark = SparkSession.builder.appName("FraudPrediction").getOrCreate()
@@ -49,19 +55,35 @@ def make_predictions(
     logger.info("Loading new data...")
     new_data = spark.read.parquet(new_data_path)
 
-    missing = [c for c in REQUIRED_COLUMNS if c not in new_data.columns]
-    if missing:
-        raise ValueError(f"Missing required columns in input data: {missing}")
-
-    if not isinstance(new_data.schema["features"].dataType, VectorUDT):
-        actual = dict(new_data.dtypes).get("features")
-        raise ValueError(f"Column 'features' must be of type VectorUDT, got {actual}")
-
-    if new_data.rdd.isEmpty():
-        raise ValueError("Input data is empty. Cannot proceed with predictions.")
-
     logger.info("Loading trained model...")
-    model = RandomForestClassificationModel.load(model_path)
+    model = load_model(model_path)
+
+    if pipeline_assembles_features(model):
+        # The pipeline assembles `features`; feed it engineered source columns
+        # (drop any stale vector so the assembler's output does not collide).
+        if new_data.rdd.isEmpty():
+            raise ValueError("Input data is empty. Cannot proceed with predictions.")
+        if "features" in new_data.columns:
+            new_data = new_data.drop("features")
+        new_data = apply_feature_transforms(new_data)
+        string_cols = [n for n, d in new_data.dtypes if d == "string"]
+        if string_cols:
+            new_data = new_data.drop(*string_cols)
+    else:
+        # Bare classifier or a classifier-only pipeline: the input must already
+        # carry the features vector.
+        missing = [c for c in REQUIRED_COLUMNS if c not in new_data.columns]
+        if missing:
+            raise ValueError(f"Missing required columns in input data: {missing}")
+
+        if not isinstance(new_data.schema["features"].dataType, VectorUDT):
+            actual = dict(new_data.dtypes).get("features")
+            raise ValueError(
+                f"Column 'features' must be of type VectorUDT, got {actual}"
+            )
+
+        if new_data.rdd.isEmpty():
+            raise ValueError("Input data is empty. Cannot proceed with predictions.")
 
     logger.info("Making predictions...")
     predictions = model.transform(new_data)

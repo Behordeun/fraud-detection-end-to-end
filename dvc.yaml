@@ -16,6 +16,7 @@ stages:
       - data/processed/train
       - data/processed/test
       - data/processed/new_data
+      - models/amount_scaler
 
   feature_engineering:
     cmd: PYTHONPATH=src python -m fraud_detection.pipelines.stages feature_engineering

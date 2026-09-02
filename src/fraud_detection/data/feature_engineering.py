@@ -1,4 +1,3 @@
-from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import abs as spark_abs
 from pyspark.sql.functions import col, greatest, lit, log, sqrt, when
@@ -80,8 +79,53 @@ def create_interaction_features(df: DataFrame) -> DataFrame:
     return df
 
 
+# Columns excluded from the assembled feature vector: the label, any stale
+# vector, and the string categoricals (human-readable labels derived from
+# numeric features already present; VectorAssembler cannot consume strings).
+_NON_FEATURE_COLUMNS = {"Class", "features"}
+
+
+def apply_feature_transforms(df: DataFrame) -> DataFrame:
+    """Apply every feature-engineering transform to a dataframe.
+
+    This is the single source of truth for the transform chain. Both the
+    training pipeline stage and the serving path call it, so the features a
+    model is trained on are byte-for-byte the features it scores at inference
+    time. It does NOT assemble the vector: the assembler is a stage of the
+    persisted PipelineModel so it travels with the model.
+    """
+    df = create_time_features(df)
+    df = create_amount_features(df)
+    df = create_pca_features(df)
+    df = create_interaction_features(df)
+
+    # Preprocessing may have assembled a `features` vector; drop it so a later
+    # assembler can rebuild the vector over the newly engineered columns.
+    if "features" in df.columns:
+        df = df.drop("features")
+    return df
+
+
+def feature_vector_columns(df: DataFrame) -> list:
+    """Return the numeric columns the feature vector is assembled from.
+
+    Order is the dataframe's column order, which the training assembler and the
+    serving assembler both consume identically, so no reordering skew arises.
+    """
+    return [
+        name
+        for name, dtype in df.dtypes
+        if name not in _NON_FEATURE_COLUMNS and dtype not in ("string",)
+    ]
+
+
 def engineer_features(input_path: str, output_path: str):
-    """Main feature engineering pipeline."""
+    """Main feature engineering pipeline.
+
+    Writes the engineered numeric columns (no assembled ``features`` vector):
+    the training PipelineModel owns the VectorAssembler stage, so assembly lives
+    with the model and is replayed identically at serving time.
+    """
     spark = SparkSession.builder.appName("FeatureEngineering").getOrCreate()
 
     print(f"Loading data from {input_path}...")
@@ -92,31 +136,14 @@ def engineer_features(input_path: str, output_path: str):
     for dataset_name, dataset in [("train", df), ("test", test_df)]:
         print(f"Engineering features for {dataset_name} dataset...")
 
-        # Apply all feature engineering steps
-        dataset = create_time_features(dataset)
-        dataset = create_amount_features(dataset)
-        dataset = create_pca_features(dataset)
-        dataset = create_interaction_features(dataset)
+        dataset = apply_feature_transforms(dataset)
 
-        # Preprocessing already assembled a `features` vector; drop it so this
-        # stage can rebuild the vector over the newly engineered columns.
-        if "features" in dataset.columns:
-            dataset = dataset.drop("features")
+        # Save engineered columns only; the model's pipeline assembles the
+        # vector. Drop string categoricals VectorAssembler cannot consume.
+        string_cols = [name for name, dtype in dataset.dtypes if dtype == "string"]
+        if string_cols:
+            dataset = dataset.drop(*string_cols)
 
-        # Assemble the feature vector from numeric columns only. The string
-        # categoricals (Time_Period, Amount_Category) are human-readable labels
-        # derived from numeric features already in the vector, and VectorAssembler
-        # cannot consume string columns, so they are excluded.
-        excluded = {"Class", "features"}
-        feature_cols = [
-            name
-            for name, dtype in dataset.dtypes
-            if name not in excluded and dtype not in ("string",)
-        ]
-        assembler = VectorAssembler(inputCols=feature_cols, outputCol="features")
-        dataset = assembler.transform(dataset)
-
-        # Save engineered dataset
         print(f"Saving engineered {dataset_name} data...")
         dataset.write.mode("overwrite").parquet(f"{output_path}/{dataset_name}")
 
