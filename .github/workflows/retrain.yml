@@ -1,0 +1,113 @@
+name: Retrain Model
+
+# Retrains on the real dataset and promotes through the MLflow registry. Fired
+# by the Model Monitoring workflow when drift crosses the threshold, or manually.
+# Unlike the sample-only reproduce-pipeline job in ml-pipeline.yml, this pulls
+# the DVC-tracked production data and runs the evaluate stage's registry
+# promotion against a real tracking server.
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why the retrain was triggered (e.g. drift 42%)"
+        required: false
+        default: "manual"
+
+permissions:
+  contents: read
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Require the infrastructure a real retrain needs
+      # A real retrain trains on production data and promotes in the registry.
+      # Both need configured infra; without it, fail loud instead of silently
+      # retraining on nothing and reporting success.
+      env:
+        MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+        KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+      run: |
+        missing=""
+        if [ -z "$MLFLOW_TRACKING_URI" ] || [ "${MLFLOW_TRACKING_URI#file:}" != "$MLFLOW_TRACKING_URI" ]; then
+          missing="$missing MLFLOW_TRACKING_URI(a real tracking server, not a file store, so registry promotion runs)"
+        fi
+        # A real dataset comes from either the DVC remote or a Kaggle download.
+        # The Kaggle CLI needs both KAGGLE_USERNAME and KAGGLE_KEY to authenticate.
+        if [ -z "$AWS_ACCESS_KEY_ID" ] && { [ -z "$KAGGLE_KEY" ] || [ -z "$KAGGLE_USERNAME" ]; } && [ ! -f data/raw/creditcard_2023.csv.dvc ]; then
+          missing="$missing a-real-data-source(a committed .dvc pointer + AWS_ACCESS_KEY_ID, or KAGGLE_USERNAME/KAGGLE_KEY)"
+        fi
+        if [ -n "$missing" ]; then
+          echo "::error::Real retrain requires configured infrastructure. Missing:$missing"
+          exit 1
+        fi
+
+    - name: Pull the DVC-tracked dataset
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        DVC_REMOTE_ENDPOINT: ${{ secrets.DVC_REMOTE_ENDPOINT }}
+        KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+        KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+      run: |
+        # The dataset is per-user and license-restricted, so its .dvc pointer is
+        # not committed. Two supported real-data sources: a committed pointer
+        # pulled from the DVC remote, or a fresh Kaggle download. Fail loud if
+        # neither is available rather than retraining on nothing.
+        if [ -f data/raw/creditcard_2023.csv.dvc ]; then
+          if [ -n "$DVC_REMOTE_ENDPOINT" ]; then
+            dvc remote modify --local minio endpointurl "$DVC_REMOTE_ENDPOINT"
+          fi
+          dvc pull data/raw/creditcard_2023.csv.dvc
+        elif [ -n "$KAGGLE_KEY" ] && [ -n "$KAGGLE_USERNAME" ]; then
+          python scripts/setup_data.py
+        else
+          echo "::error::No real dataset available. Commit a data/raw/creditcard_2023.csv.dvc pointer for the DVC remote, or set KAGGLE_USERNAME/KAGGLE_KEY secrets so setup_data.py can fetch it."
+          exit 1
+        fi
+        test -f data/raw/creditcard_2023.csv
+
+    - name: Retrain, evaluate, gate, and promote
+      # dvc repro runs preprocess -> feature_engineering -> train -> evaluate.
+      # The evaluate stage promotes the new version in the registry only when its
+      # held-out AUC clears the floor (register_and_promote), and the gate below
+      # fails the run if AUC dropped.
+      env:
+        MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      run: |
+        echo "Retrain reason: ${{ github.event.inputs.reason }}"
+        dvc repro --force
+        dvc metrics show
+        MIN_AUC=$(python -c "import yaml; print(yaml.safe_load(open('params.yaml'))['gate']['min_auc'])")
+        METRIC=$(python -c "import yaml; print(yaml.safe_load(open('params.yaml'))['gate']['metric'])")
+        python scripts/check_metrics_gate.py --metrics metrics.json --metric "$METRIC" --min "$MIN_AUC"
+
+    - name: Upload retrain metrics
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: retrain-metrics
+        path: metrics.json
