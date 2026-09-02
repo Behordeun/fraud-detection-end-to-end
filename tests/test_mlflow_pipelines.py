@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from src.pipelines.mlflow_pipeline import run_mlflow_pipeline
+from src.fraud_detection.pipelines.mlflow_pipeline import run_mlflow_pipeline
 
 # Configure logging
 logger = logging.getLogger(__name__)

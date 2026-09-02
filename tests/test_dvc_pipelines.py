@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from src.pipelines.dvc_pipeline import run_dvc_pipeline
+from src.fraud_detection.pipelines.dvc_pipeline import run_dvc_pipeline
 
 
 @pytest.fixture
@@ -23,10 +23,10 @@ def mock_config_path(tmpdir):
     return str(config_file)
 
 
-@patch("src.pipelines.dvc_pipeline.subprocess.run")
-@patch("src.pipelines.dvc_pipeline.get_spark_session")
-@patch("src.pipelines.dvc_pipeline.check_data_quality")
-@patch("src.pipelines.dvc_pipeline.generate_drift_report")
+@patch("src.fraud_detection.pipelines.dvc_pipeline.subprocess.run")
+@patch("src.fraud_detection.pipelines.dvc_pipeline.get_spark_session")
+@patch("src.fraud_detection.pipelines.dvc_pipeline.check_data_quality")
+@patch("src.fraud_detection.pipelines.dvc_pipeline.generate_drift_report")
 def test_run_dvc_pipeline(
     mock_generate_drift_report,
     mock_check_data_quality,
@@ -78,12 +78,12 @@ def test_run_dvc_pipeline(
                 "-n",
                 "preprocess",
                 "-d",
-                "src/data_preprocessing/preprocessing.py",
+                "src/fraud_detection/data/preprocessing.py",
                 "-d",
                 str(raw_data_path),
                 "-o",
                 str(processed_data_dir),
-                "python src/data_preprocessing/preprocessing.py",
+                "python src/fraud_detection/data/preprocessing.py",
             ],
             check=True,
         ),

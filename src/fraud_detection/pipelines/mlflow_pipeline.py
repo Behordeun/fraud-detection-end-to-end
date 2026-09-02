@@ -8,7 +8,7 @@ from mlflow import log_metric, log_param  # For direct logging if needed
 # Add the 'src' directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.utils import (
+from src.fraud_detection.utils.utils import (
     handle_error,
     load_config,
     log_metrics_to_mlflow,

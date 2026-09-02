@@ -8,7 +8,7 @@ from pyspark.ml.linalg import Vectors, VectorUDT
 from pyspark.sql import SparkSession
 from pyspark.sql.types import DoubleType, Row, StringType, StructField, StructType
 
-from src.models.predict import make_predictions
+from src.fraud_detection.models.predict import make_predictions
 
 
 @pytest.fixture(scope="module")

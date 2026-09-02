@@ -6,8 +6,8 @@ from pyspark.ml.linalg import Vectors, VectorUDT
 from pyspark.sql import SparkSession
 from pyspark.sql.types import DoubleType, StructField, StructType
 
-from src.models.evaluate import evaluate_model
-from src.models.train import train_model
+from src.fraud_detection.models.evaluate import evaluate_model
+from src.fraud_detection.models.train import train_model
 
 # Configure logging
 logger = logging.getLogger(__name__)

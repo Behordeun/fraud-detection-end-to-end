@@ -5,7 +5,7 @@ import pytest
 from pyspark.ml.linalg import Vectors
 from pyspark.sql import SparkSession
 
-from src.monitoring.train_new_model import train_current_model
+from src.fraud_detection.monitoring.train_new_model import train_current_model
 
 
 @pytest.fixture(scope="module")

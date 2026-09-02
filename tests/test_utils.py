@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pyspark.sql import SparkSession
 
-from src.utils import (
+from src.fraud_detection.utils.utils import (
     check_data_quality,
     generate_drift_report,
     get_spark_session,
@@ -179,7 +179,7 @@ def test_connect_to_minio(mock_boto_client):
     """
     Test that connect_to_minio returns a valid MinIO client.
     """
-    from src.utils import connect_to_minio
+    from src.fraud_detection.utils.utils import connect_to_minio
 
     mock_config = {
         "endpoint_url": "http://localhost:9000",

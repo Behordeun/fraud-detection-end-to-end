@@ -2,7 +2,7 @@ import pytest
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, mean
 
-from src.monitoring.simulate_data_drift import simulate_data_drift
+from src.fraud_detection.monitoring.simulate_data_drift import simulate_data_drift
 
 
 @pytest.fixture(scope="module")

@@ -1,11 +1,7 @@
 import os
 import subprocess
-import sys
 
-# Add the 'src' directory to the Python path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-from utils import (
+from src.fraud_detection.utils.utils import (
     check_data_quality,
     generate_drift_report,
     get_spark_session,
@@ -38,12 +34,12 @@ def run_dvc_pipeline(config_path: str):
                 "-n",
                 "preprocess",
                 "-d",
-                "src/data_preprocessing/preprocessing.py",
+                "src/fraud_detection/data/preprocessing.py",
                 "-d",
                 dvc_config["raw_data_path"],
                 "-o",
                 dvc_config["processed_data_path"],
-                "python src/data_preprocessing/preprocessing.py",
+                "python src/fraud_detection/data/preprocessing.py",
             ],
             check=True,
         )
