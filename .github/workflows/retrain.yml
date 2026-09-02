@@ -46,6 +46,7 @@ jobs:
       env:
         MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
         KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
       run: |
         missing=""
@@ -53,7 +54,8 @@ jobs:
           missing="$missing MLFLOW_TRACKING_URI(a real tracking server, not a file store, so registry promotion runs)"
         fi
         # A real dataset comes from either the DVC remote or a Kaggle download.
-        if [ -z "$AWS_ACCESS_KEY_ID" ] && [ -z "$KAGGLE_KEY" ] && [ ! -f data/raw/creditcard_2023.csv.dvc ]; then
+        # The Kaggle CLI needs both KAGGLE_USERNAME and KAGGLE_KEY to authenticate.
+        if [ -z "$AWS_ACCESS_KEY_ID" ] && { [ -z "$KAGGLE_KEY" ] || [ -z "$KAGGLE_USERNAME" ]; } && [ ! -f data/raw/creditcard_2023.csv.dvc ]; then
           missing="$missing a-real-data-source(a committed .dvc pointer + AWS_ACCESS_KEY_ID, or KAGGLE_USERNAME/KAGGLE_KEY)"
         fi
         if [ -n "$missing" ]; then
@@ -78,7 +80,7 @@ jobs:
             dvc remote modify --local minio endpointurl "$DVC_REMOTE_ENDPOINT"
           fi
           dvc pull data/raw/creditcard_2023.csv.dvc
-        elif [ -n "$KAGGLE_KEY" ]; then
+        elif [ -n "$KAGGLE_KEY" ] && [ -n "$KAGGLE_USERNAME" ]; then
           python scripts/setup_data.py
         else
           echo "::error::No real dataset available. Commit a data/raw/creditcard_2023.csv.dvc pointer for the DVC remote, or set KAGGLE_USERNAME/KAGGLE_KEY secrets so setup_data.py can fetch it."

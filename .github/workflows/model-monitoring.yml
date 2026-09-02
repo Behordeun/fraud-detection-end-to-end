@@ -50,7 +50,7 @@ jobs:
             dvc remote modify --local minio endpointurl "$DVC_REMOTE_ENDPOINT"
           fi
           dvc pull data/raw/creditcard_2023.csv.dvc
-        elif [ -n "$KAGGLE_KEY" ]; then
+        elif [ -n "$KAGGLE_KEY" ] && [ -n "$KAGGLE_USERNAME" ]; then
           echo "Kaggle credential present; fetching the real dataset."
           python scripts/setup_data.py
         else
