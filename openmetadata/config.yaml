@@ -7,9 +7,9 @@ source:
       type: S3
       bucketName: fraud-detection-data
       awsConfig:
-        awsAccessKeyId: minioadmin
-        awsSecretAccessKey: minioadmin
-        endpointURL: http://localhost:9000
+        awsAccessKeyId: "${MINIO_ACCESS_KEY}"
+        awsSecretAccessKey: "${MINIO_SECRET_KEY}"
+        endpointURL: "${MINIO_ENDPOINT:-http://localhost:9000}"
 workflowConfig:
   loggerLevel: INFO
   openMetadataServerConfig:

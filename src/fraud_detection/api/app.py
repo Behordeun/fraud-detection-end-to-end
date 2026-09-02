@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel
 from pyspark.sql import SparkSession
 
@@ -7,6 +7,12 @@ app = FastAPI(title="Fraud Detection API", version="1.0.0")
 # Initialize Spark session
 spark = SparkSession.builder.appName("FraudDetectionAPI").getOrCreate()
 
+from fraud_detection.api.metrics import (  # noqa: E402
+    MODEL_LOADED,
+    PREDICTION_LATENCY,
+    PREDICTION_REQUESTS,
+    render_metrics,
+)
 from fraud_detection.models.loader import load_model  # noqa: E402
 from fraud_detection.models.serving import (  # noqa: E402
     build_serving_features,
@@ -33,6 +39,7 @@ async def load_artifacts():
         print("Model and Amount scaler loaded successfully")
     except Exception as e:
         print(f"Error loading serving artifacts: {e}")
+    MODEL_LOADED.set(1 if model is not None and amount_scaler is not None else 0)
 
 
 class TransactionData(BaseModel):
@@ -87,33 +94,42 @@ async def health_check():
     }
 
 
+@app.get("/metrics")
+async def metrics():
+    body, content_type = render_metrics()
+    return Response(content=body, media_type=content_type)
+
+
 @app.post("/predict", response_model=PredictionResponse)
 async def predict_fraud(transaction: TransactionData):
     if model is None or amount_scaler is None:
+        PREDICTION_REQUESTS.labels(outcome="error").inc()
         raise HTTPException(status_code=503, detail="Model not loaded")
 
     try:
-        # Reproduce the training features from the raw request: scale Amount with
-        # the fitted scaler, apply the shared feature-engineering transforms,
-        # then let the PipelineModel's assembler build the vector. This is the
-        # same code path training used, so there is no training/serving skew.
-        data_dict = transaction.dict()
-        raw_df = spark.createDataFrame([data_dict])
-        features_df = build_serving_features(raw_df, amount_scaler)
+        with PREDICTION_LATENCY.time():
+            # Reproduce the training features from the raw request: scale Amount
+            # with the fitted scaler, apply the shared feature-engineering
+            # transforms, then let the PipelineModel's assembler build the
+            # vector. Same code path training used, so no training/serving skew.
+            data_dict = transaction.dict()
+            raw_df = spark.createDataFrame([data_dict])
+            features_df = build_serving_features(raw_df, amount_scaler)
 
-        prediction = model.transform(features_df)
+            prediction = model.transform(features_df)
 
-        result = prediction.select("prediction", "probability").collect()[0]
-        is_fraud = bool(result["prediction"])
-        prob_array = result["probability"].toArray()
-        # A single-class model emits a length-1 probability vector; there is no
-        # class-1 probability to report, so fail clearly instead of IndexError.
-        if len(prob_array) < 2:
-            raise HTTPException(
-                status_code=500,
-                detail="Model returned a single-class probability vector",
-            )
-        fraud_prob = float(prob_array[1])  # Probability of fraud (class 1)
+            result = prediction.select("prediction", "probability").collect()[0]
+            is_fraud = bool(result["prediction"])
+            prob_array = result["probability"].toArray()
+            # A single-class model emits a length-1 probability vector; there is
+            # no class-1 probability to report, so fail clearly instead of
+            # IndexError.
+            if len(prob_array) < 2:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Model returned a single-class probability vector",
+                )
+            fraud_prob = float(prob_array[1])  # Probability of fraud (class 1)
 
         if fraud_prob > 0.8:
             confidence = "high"
@@ -122,6 +138,7 @@ async def predict_fraud(transaction: TransactionData):
         else:
             confidence = "low"
 
+        PREDICTION_REQUESTS.labels(outcome="fraud" if is_fraud else "legit").inc()
         return PredictionResponse(
             is_fraud=is_fraud, fraud_probability=fraud_prob, confidence=confidence
         )
@@ -129,8 +146,10 @@ async def predict_fraud(transaction: TransactionData):
     except HTTPException:
         # Already a well-formed HTTP error (e.g. single-class vector); propagate
         # it rather than masking it as a generic 500.
+        PREDICTION_REQUESTS.labels(outcome="error").inc()
         raise
     except Exception as e:
+        PREDICTION_REQUESTS.labels(outcome="error").inc()
         raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
 
 

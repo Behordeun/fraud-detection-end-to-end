@@ -40,8 +40,12 @@ FROM ubuntu:22.04
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
 ENV AIRFLOW_HOME=/opt/airflow
-ENV MINIO_ROOT_USER=minioadmin
-ENV MINIO_ROOT_PASSWORD=minioadmin
+# Dev-stack MinIO credentials come from build args so they are not a baked-in
+# literal; override with --build-arg for anything beyond a local dev run.
+ARG MINIO_ROOT_USER=minioadmin
+ARG MINIO_ROOT_PASSWORD=minioadmin
+ENV MINIO_ROOT_USER=${MINIO_ROOT_USER}
+ENV MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
