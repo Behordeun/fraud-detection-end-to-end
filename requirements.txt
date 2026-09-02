@@ -1,5 +1,5 @@
 # Core Libraries
-pyspark==3.5.0
+pyspark==3.5.2
 numpy==1.26.4
 pandas==2.2.3
 scikit-learn==1.5.2
@@ -9,7 +9,7 @@ seaborn==0.13.2
 plotly==5.15.0
 
 # MLOps and Experiment Tracking
-mlflow==3.1.4
+mlflow==3.15.2
 dvc[s3]==3.67.1
 boto3==1.35.93
 botocore==1.35.93
@@ -23,24 +23,24 @@ pydantic==2.5.0
 PyYAML==6.0.2
 
 # Testing and Code Quality
-pytest==8.3.4
+pytest==9.0.3
 pytest-cov==6.0.0
 flake8==6.1.0
 black==24.3.0
 
 # Workflow Management
-apache-airflow==2.10.3
+apache-airflow==3.3.0
 # Pinned so the airflow-pulled RE2 binding uses a prebuilt wheel on 3.9/3.11/3.12;
 # newer builds dropped the cp39 wheel and fall back to a bazel source build in CI.
 google-re2==1.1.20240702
 
 # Additional utilities
-requests==2.32.4
-streamlit==1.37.0
+requests==2.33.0
+streamlit==1.54.0
 
 # Advanced ML and Monitoring
 optuna==3.4.0
-kafka-python==2.0.2
+kafka-python==2.3.2
 scipy==1.11.3
 click==8.1.7
 prometheus-client==0.21.1
