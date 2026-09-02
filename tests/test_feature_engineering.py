@@ -1,121 +1,120 @@
-import logging
+import math
 
 import pytest
 from pyspark.sql import SparkSession
 
-from src.data_preprocessing.feature_engineering import (
-    add_derived_features,
-    load_data,
-    save_engineered_data,
-    select_features,
+from src.fraud_detection.data.feature_engineering import (
+    create_amount_features,
+    create_interaction_features,
+    create_pca_features,
+    create_time_features,
 )
 
 
 @pytest.fixture(scope="module")
 def spark():
-    """
-    Fixture for creating a shared Spark session for tests.
-    """
-    return (
+    """Shared Spark session for the feature-engineering tests."""
+    session = (
         SparkSession.builder.appName("TestFeatureEngineering")
         .master("local[1]")
         .getOrCreate()
     )
+    yield session
+    session.stop()
 
 
-def test_load_data(spark, tmpdir):
-    """
-    Test that load_data correctly loads Parquet files into a DataFrame.
-    """
-    # Create sample data and save as Parquet
+def _pca_row(**overrides):
+    """Build a row carrying Time, Amount and V1..V28, with optional overrides."""
+    row = {"Time": 0.0, "Amount": 0.0}
+    for i in range(1, 29):
+        row[f"V{i}"] = 0.0
+    row.update(overrides)
+    return row
+
+
+def test_create_time_features_adds_hour_and_period(spark):
+    # 9 * 3600 seconds -> hour 9 -> Morning; 20 * 3600 -> hour 20 -> Evening
     data = spark.createDataFrame(
-        [(1, 100.0, "A"), (2, 200.0, "B")], ["id", "amount", "category"]
-    )
-    input_path = tmpdir.join("input_data.parquet")
-    data.write.parquet(str(input_path))
-
-    # Load data using load_data
-    loaded_data = load_data(str(input_path))
-
-    # Validate the loaded data
-    assert loaded_data.count() == data.count()
-    assert set(loaded_data.columns) == set(data.columns)
-
-
-def test_add_derived_features(spark, caplog):
-    """
-    Test that add_derived_features correctly adds derived features to the DataFrame.
-    """
-    # Create sample data
-    data = spark.createDataFrame(
-        [(1, 100.0, 200.0), (2, 300.0, 400.0)], ["id", "feature1", "feature2"]
+        [(9 * 3600.0,), (20 * 3600.0,)],
+        ["Time"],
     )
 
-    # Add derived features
-    processed_data = add_derived_features(data)
+    result = create_time_features(data)
 
-    # Validate derived features
-    assert "log_feature1" in processed_data.columns
-    assert "interaction" in processed_data.columns
-    assert "feature1_squared" in processed_data.columns
+    assert "Hour" in result.columns
+    assert "Time_Period" in result.columns
 
-    # Test with missing columns for interaction
-    caplog.set_level(logging.WARNING)
-    incomplete_data = spark.createDataFrame([(1, 100.0)], ["id", "feature1"])
-    processed_incomplete = add_derived_features(incomplete_data)
-
-    assert "interaction" not in processed_incomplete.columns
-    assert "Interaction columns ('feature1', 'feature2') not found." in caplog.text
+    rows = result.orderBy("Time").collect()
+    assert rows[0]["Hour"] == pytest.approx(9.0)
+    assert rows[0]["Time_Period"] == "Morning"
+    assert rows[1]["Hour"] == pytest.approx(20.0)
+    assert rows[1]["Time_Period"] == "Evening"
 
 
-def test_select_features(spark):
-    """
-    Test that select_features creates the engineered feature vector.
-    """
-    # Create sample data
+def test_create_amount_features_transforms_and_categorizes(spark):
     data = spark.createDataFrame(
-        [
-            (1, 100.0, 200.0),
-            (2, 300.0, 400.0),
-        ],
-        ["id", "feature1", "feature2"],
+        [(0.0,), (50.0,), (5000.0,)],
+        ["Amount"],
     )
 
-    # Select features
-    selected_columns = ["feature1", "feature2"]
-    processed_data = select_features(data, selected_columns)
+    result = create_amount_features(data)
 
-    # Validate the feature vector
-    assert "engineered_features" in processed_data.columns
-    feature_vectors = processed_data.select("engineered_features").collect()
-    assert feature_vectors[0]["engineered_features"].toArray().tolist() == [
-        100.0,
-        200.0,
-    ]
-    assert feature_vectors[1]["engineered_features"].toArray().tolist() == [
-        300.0,
-        400.0,
-    ]
-
-    # Test missing selected columns
-    with pytest.raises(ValueError, match="Missing columns in dataset"):
-        select_features(data, ["feature1", "missing_column"])
-
-
-def test_save_engineered_data(spark, tmpdir):
-    """
-    Test that save_engineered_data correctly saves data as Parquet.
-    """
-    # Create sample data
-    data = spark.createDataFrame(
-        [(1, 100.0, 200.0), (2, 300.0, 400.0)], ["id", "feature1", "feature2"]
+    assert {"Amount_log", "Amount_sqrt", "Amount_Category"}.issubset(
+        set(result.columns)
     )
 
-    # Save data using save_engineered_data
-    output_path = tmpdir.join("engineered_data.parquet")
-    save_engineered_data(data, str(output_path))
+    rows = result.orderBy("Amount").collect()
+    # Zero amount: log(0 + 1) == 0, sqrt(0) == 0, category "Zero"
+    assert rows[0]["Amount_log"] == pytest.approx(0.0)
+    assert rows[0]["Amount_sqrt"] == pytest.approx(0.0)
+    assert rows[0]["Amount_Category"] == "Zero"
+    # 50 -> Medium, log(51), sqrt(50)
+    assert rows[1]["Amount_log"] == pytest.approx(math.log(51.0))
+    assert rows[1]["Amount_sqrt"] == pytest.approx(math.sqrt(50.0))
+    assert rows[1]["Amount_Category"] == "Medium"
+    # 5000 -> Very_Large
+    assert rows[2]["Amount_Category"] == "Very_Large"
 
-    # Validate the saved file
-    loaded_data = spark.read.parquet(str(output_path))
-    assert loaded_data.count() == data.count()
-    assert set(loaded_data.columns) == set(data.columns)
+
+def test_create_pca_features_computes_magnitude_and_group_sums(spark):
+    # Set V1=3, V2=4, rest 0 -> magnitude 5; group sums isolate the ranges.
+    row = _pca_row(V1=3.0, V2=4.0, V15=2.0, V25=7.0)
+    data = spark.createDataFrame([row])
+
+    result = create_pca_features(data)
+
+    assert {
+        "PCA_Magnitude",
+        "V1_to_V10_sum",
+        "V11_to_V20_sum",
+        "V21_to_V28_sum",
+    }.issubset(set(result.columns))
+
+    out = result.collect()[0]
+    assert out["PCA_Magnitude"] == pytest.approx(
+        math.sqrt(3.0**2 + 4.0**2 + 2.0**2 + 7.0**2)
+    )
+    assert out["V1_to_V10_sum"] == pytest.approx(7.0)  # V1 + V2
+    assert out["V11_to_V20_sum"] == pytest.approx(2.0)  # V15
+    assert out["V21_to_V28_sum"] == pytest.approx(7.0)  # V25
+
+
+def test_create_interaction_features_requires_hour(spark):
+    # Interaction features need the Hour column produced by create_time_features.
+    row = _pca_row(Time=6 * 3600.0, Amount=10.0, V1=2.0, V2=3.0, V3=4.0)
+    data = spark.createDataFrame([row])
+
+    result = create_interaction_features(create_time_features(data))
+
+    assert {
+        "Amount_Hour_Interaction",
+        "V1_Amount",
+        "V2_Amount",
+        "V3_Amount",
+    }.issubset(set(result.columns))
+
+    out = result.collect()[0]
+    assert out["Amount_Hour_Interaction"] == pytest.approx(10.0 * 6.0)
+    assert out["V1_Amount"] == pytest.approx(2.0 * 10.0)
+    assert out["V2_Amount"] == pytest.approx(3.0 * 10.0)
+    assert out["V3_Amount"] == pytest.approx(4.0 * 10.0)

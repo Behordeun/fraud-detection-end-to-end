@@ -79,12 +79,26 @@ def simulate_data_drift(
         else:
             raise ValueError("Unsupported drift_type. Choose 'mean' or 'variance'.")
 
-    # Ensure the drifted dataset has exactly n_samples rows
+    # Resize the drifted dataset toward n_samples without discarding the applied
+    # drift. When the request is at least the row count, return every drifted row
+    # (optionally topped up with a seeded resample) so the drifted statistics are
+    # preserved; only downsample when fewer rows than available are requested.
     total_rows = original_data.count()
-    fraction = n_samples / total_rows if total_rows > 0 else 1.0
-    drifted_data = original_data.sample(withReplacement=True, fraction=fraction).limit(
-        n_samples
-    )
+
+    if total_rows == 0:
+        return original_data
+
+    if n_samples <= total_rows:
+        drifted_data = original_data.limit(n_samples)
+    else:
+        # Deterministically repeat the drifted rows to reach exactly n_samples,
+        # rather than probabilistic sampling which cannot guarantee the count.
+        rows_needed = n_samples - total_rows
+        repetitions = (rows_needed + total_rows - 1) // total_rows
+        extra = original_data
+        for _ in range(repetitions - 1):
+            extra = extra.union(original_data)
+        drifted_data = original_data.union(extra.limit(rows_needed))
 
     return drifted_data
 

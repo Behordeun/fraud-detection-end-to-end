@@ -4,8 +4,7 @@ import pytest
 from pyspark.sql import SparkSession
 from pyspark.sql.types import DoubleType, StructField, StructType
 
-from src.data_preprocessing.feature_engineering import save_engineered_data
-from src.data_preprocessing.preprocessing import (
+from src.fraud_detection.data.preprocessing import (
     handle_missing_values,
     load_data,
     save_preprocessed_data,
@@ -237,25 +236,3 @@ def test_save_preprocessed_data_with_empty_data(spark, tmpdir):
     assert loaded_train_data.count() == 0
     assert loaded_test_data.count() == 0
     assert loaded_reserve_data.count() == 0
-
-
-def test_save_engineered_data(spark, tmpdir):
-    """
-    Test that save_engineered_data saves the data to Parquet correctly.
-    """
-    # Create sample data
-    data = spark.createDataFrame(
-        [(1, 100.0), (2, 200.0)],
-        ["id", "Amount"],
-    )
-
-    # Define output path
-    output_path = tmpdir.mkdir("engineered_data")
-
-    # Call the function
-    save_engineered_data(data, str(output_path))
-
-    # Validate the data is saved
-    saved_data = spark.read.parquet(str(output_path))
-    assert saved_data.count() == data.count(), "Row count mismatch"
-    assert set(saved_data.columns) == set(data.columns), "Column mismatch"

@@ -6,8 +6,8 @@ from pyspark.ml.linalg import Vectors, VectorUDT
 from pyspark.sql import SparkSession
 from pyspark.sql.types import DoubleType, StructField, StructType
 
-from src.models.evaluate import evaluate_model
-from src.models.train import train_model
+from src.fraud_detection.models.evaluate import evaluate_model
+from src.fraud_detection.models.train import train_model
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -84,7 +84,7 @@ def test_evaluate_model(spark, tmpdir):
     test_data_path = tmpdir.join("test_data.parquet")
     test_data.write.mode("overwrite").parquet(str(test_data_path))
 
-    # Train a dummy Pipeline model
+    # Train a RandomForestClassificationModel (matches what evaluate.py loads)
     rf = RandomForestClassifier(featuresCol="features", labelCol="Class", numTrees=5)
     rf_model = rf.fit(test_data)
 
@@ -94,9 +94,10 @@ def test_evaluate_model(spark, tmpdir):
 
     # Evaluate the model
     try:
-        auc = evaluate_model(str(test_data_path), str(model_path))
+        metrics = evaluate_model(str(model_path), str(test_data_path))
 
         # Validate the AUC metric
+        auc = metrics["auc"]
         assert (
             0.0 <= auc <= 1.0
         ), f"AUC metric {auc} is outside the valid range [0.0, 1.0]"

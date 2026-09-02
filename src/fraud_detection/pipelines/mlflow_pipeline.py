@@ -1,14 +1,8 @@
-import os
 import subprocess
-import sys
 
-import mlflow  # Import MLflow
-from mlflow import log_metric, log_param  # For direct logging if needed
+import mlflow
 
-# Add the 'src' directory to the Python path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-from src.utils import (
+from fraud_detection.utils.utils import (
     handle_error,
     load_config,
     log_metrics_to_mlflow,
@@ -37,11 +31,15 @@ def run_mlflow_pipeline(config_path: str):
 
             # Step 1: Train the model
             print("Training the model...")
-            subprocess.run(["python", "src/models/train.py"], check=True)
+            subprocess.run(
+                ["python", "src/fraud_detection/models/train.py"], check=True
+            )
 
             # Step 2: Evaluate the model
             print("Evaluating the model...")
-            subprocess.run(["python", "src/models/evaluate.py"], check=True)
+            subprocess.run(
+                ["python", "src/fraud_detection/models/evaluate.py"], check=True
+            )
 
             # Log metrics to MLflow
             print("Logging metrics to MLflow...")

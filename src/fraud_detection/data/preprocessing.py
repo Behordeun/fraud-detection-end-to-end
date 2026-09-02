@@ -170,8 +170,8 @@ def save_preprocessed_data(
 
 
 if __name__ == "__main__":
-    from fraud_detection.utils.config import RAW_DATA_DIR, PROCESSED_DATA_DIR
-    
+    from fraud_detection.utils.config import PROCESSED_DATA_DIR, RAW_DATA_DIR
+
     # Example workflow
     DATA_PATH = RAW_DATA_DIR / "creditcard_2023.csv"
     TARGET_COLUMN = "Class"

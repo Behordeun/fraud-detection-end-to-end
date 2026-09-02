@@ -58,3 +58,10 @@ htmlcov/
 
 # Documentation
 docs/
+
+# MLflow local tracking store
+mlflow.db
+mlruns/
+
+# Local KiroCrew tooling
+.kiro/

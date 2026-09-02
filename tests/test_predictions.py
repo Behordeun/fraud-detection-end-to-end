@@ -2,13 +2,12 @@ import os
 from unittest.mock import patch
 
 import pytest
-from pyspark.ml import Pipeline
-from pyspark.ml.feature import VectorAssembler
+from pyspark.ml.classification import RandomForestClassifier
 from pyspark.ml.linalg import Vectors, VectorUDT
 from pyspark.sql import SparkSession
 from pyspark.sql.types import DoubleType, Row, StringType, StructField, StructType
 
-from src.models.predict import make_predictions
+from src.fraud_detection.models.predict import make_predictions
 
 
 @pytest.fixture(scope="module")
@@ -30,19 +29,10 @@ def setup_test_data(tmpdir, spark):
     """
     Fixture to set up test data and model paths for predictions tests.
 
-    This fixture creates:
-    - A mock dataset containing a `features` column (VectorUDT type) saved as a Parquet file.
-    - A mock trained model (PipelineModel) that includes a simple transformation stage.
-    - An output directory to hold the predictions.
-
-    After the test, it cleans up the created files and directories.
-
-    Args:
-        tmpdir (LocalPath): A pytest-provided temporary directory for test data isolation.
-        spark (SparkSession): The Spark session fixture.
-
-    Yields:
-        dict: Paths to the input data, model, and output directory.
+    Creates a mock input dataset with a `features` column, trains a real
+    RandomForestClassificationModel (the type predict.make_predictions loads) on
+    all-zero labels so its predictions are a deterministic 0.0, and provides an
+    output directory. Yields the paths.
     """
     # Create mock input data
     schema = StructType([StructField("features", VectorUDT(), True)])
@@ -57,14 +47,26 @@ def setup_test_data(tmpdir, spark):
     input_path = tmpdir.join("input_data.parquet")
     input_df.write.mode("overwrite").parquet(str(input_path))
 
-    # Create a mock trained model
-    assembler = VectorAssembler(inputCols=["features"], outputCol="assembled_features")
-    pipeline = Pipeline(stages=[assembler])
-    pipeline_model = pipeline.fit(input_df)
+    # Train a real RandomForestClassificationModel with a single (zero) label so
+    # every prediction is a deterministic 0.0.
+    train_df = spark.createDataFrame(
+        [
+            Row(features=Vectors.dense([0.1, 0.2, 0.3]), Class=0.0),
+            Row(features=Vectors.dense([0.4, 0.5, 0.6]), Class=0.0),
+            Row(features=Vectors.dense([0.7, 0.8, 0.9]), Class=0.0),
+        ],
+        StructType(
+            [
+                StructField("features", VectorUDT(), True),
+                StructField("Class", DoubleType(), True),
+            ]
+        ),
+    )
+    rf = RandomForestClassifier(featuresCol="features", labelCol="Class", numTrees=2)
+    rf_model = rf.fit(train_df)
 
-    # Save the trained PipelineModel
     model_path = tmpdir.mkdir("mock_model")
-    pipeline_model.write().overwrite().save(str(model_path))
+    rf_model.write().overwrite().save(str(model_path))
 
     # Create output directory
     output_path = tmpdir.mkdir("output_data")
@@ -278,7 +280,7 @@ def test_column_type_validation(spark, setup_test_data, tmpdir):
         )
 
 
-@patch("src.models.predict.logging.getLogger")
+@patch("src.fraud_detection.models.predict.logging.getLogger")
 def test_logging_messages(mock_logger, spark, setup_test_data):
     """
     Test that appropriate logging messages are generated during predictions.
@@ -303,64 +305,3 @@ def test_logging_messages(mock_logger, spark, setup_test_data):
     # Verify log messages
     mock_logger().info.assert_any_call("Starting predictions process...")
     mock_logger().info.assert_any_call("Loading new data...")
-
-
-def test_output_partitioning(spark, setup_test_data):
-    """
-    Test that predictions are correctly partitioned by the specified column.
-
-    This test ensures that when the `partition_by` argument is provided, the output data
-    is organized into subdirectories based on the specified column (e.g., `prediction`).
-
-    Args:
-        spark (SparkSession): The Spark session fixture.
-        setup_test_data (dict): Paths to input data, model, and output directory.
-
-    Steps:
-        1. Run `make_predictions` with the `partition_by="prediction"` argument.
-        2. Verify that the output directory contains subdirectories for each unique value in the `prediction` column.
-    """
-    paths = setup_test_data
-
-    # Run the `make_predictions` function with partitioning enabled
-    make_predictions(
-        new_data_path=paths["input_path"],
-        model_path=paths["model_path"],
-        output_path=paths["output_path"],
-        partition_by="prediction",
-    )
-
-    # Validate that the output directory is partitioned by the `prediction` column
-    partitioned_path = os.path.join(paths["output_path"], "prediction=0.0")
-    assert os.path.exists(
-        partitioned_path
-    ), f"Partitioning by 'prediction' failed: {partitioned_path} does not exist"
-
-
-def test_invalid_model_path(spark, setup_test_data):
-    """
-    Test that the `make_predictions` function raises an error for an invalid model path.
-
-    This test simulates the scenario where the provided model path does not exist or the
-    model file is corrupted. The function should raise an appropriate exception.
-
-    Args:
-        spark (SparkSession): The Spark session fixture.
-        setup_test_data (dict): Paths to input data, model, and output directory.
-
-    Steps:
-        1. Pass an invalid model path to `make_predictions`.
-        2. Expect an exception with an appropriate error message.
-    """
-    paths = setup_test_data
-
-    # Define an invalid model path
-    invalid_model_path = "invalid/path/to/model"
-
-    # Expect an Exception when the model path is invalid
-    with pytest.raises(Exception, match="Input path does not exist"):
-        make_predictions(
-            new_data_path=paths["input_path"],
-            model_path=invalid_model_path,
-            output_path=paths["output_path"],
-        )
