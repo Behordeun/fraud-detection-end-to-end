@@ -26,6 +26,7 @@ __pycache__
 .env.test
 .env.production
 data/raw/*
+!data/raw/creditcard_sample.csv
 data/processed/*
 data/new_data/*
 data/predictions/*
@@ -36,13 +37,10 @@ get-pip.py
 *.bkp
 .coverage
 requirements-2.txt
-.dvc
 mlruns
-*.csv.dvc
 *.log
 logs/
 models/*
-.github/workflows/codeql-analysis.yml
 *.pydevinfo
 data/drifted_data/*
 monitoring_reports/*
@@ -57,7 +55,8 @@ htmlcov/
 *.backup
 
 # Documentation
-docs/
+docs/*
+!docs/data-and-pipeline.md
 
 # MLflow local tracking store
 mlflow.db

@@ -12,6 +12,18 @@ services:
     volumes:
       - minio-data:/data
 
+  # One-shot: create the DVC remote bucket once MinIO is up.
+  createbuckets:
+    image: quay.io/minio/mc
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until (/usr/bin/mc alias set local http://minio:9000 minioadmin minioadmin) do sleep 1; done;
+      /usr/bin/mc mb --ignore-existing local/dvc-bucket;
+      exit 0;
+      "
+
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
