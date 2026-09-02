@@ -31,19 +31,40 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Produce processed data on the sample
-      run: |
-        cp data/raw/creditcard_sample.csv data/raw/creditcard_2023.csv
-        PYTHONPATH=src python -m fraud_detection.pipelines.stages preprocess
+    - name: Acquire the data to monitor
+      # With real data configured, monitor against it; otherwise fall back to the
+      # committed sample in a clearly-labeled smoke mode (drift against the
+      # sample's own reserve set is near zero, so retrain will not fire, which is
+      # correct, not a bug).
       env:
-        MLFLOW_TRACKING_URI: file:./mlruns
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        DVC_REMOTE_ENDPOINT: ${{ secrets.DVC_REMOTE_ENDPOINT }}
+        KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+        KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+        MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI || 'file:./mlruns' }}
+      run: |
+        if [ -f data/raw/creditcard_2023.csv.dvc ] && [ -n "$AWS_ACCESS_KEY_ID" ]; then
+          echo "DVC pointer + remote credential present; pulling the real dataset."
+          if [ -n "$DVC_REMOTE_ENDPOINT" ]; then
+            dvc remote modify --local minio endpointurl "$DVC_REMOTE_ENDPOINT"
+          fi
+          dvc pull data/raw/creditcard_2023.csv.dvc
+        elif [ -n "$KAGGLE_KEY" ]; then
+          echo "Kaggle credential present; fetching the real dataset."
+          python scripts/setup_data.py
+        else
+          echo "No real-data source configured; running in SMOKE mode on the committed sample."
+          cp data/raw/creditcard_sample.csv data/raw/creditcard_2023.csv
+        fi
+        PYTHONPATH=src python -m fraud_detection.pipelines.stages preprocess
 
     - name: Run drift detection
       run: |
         PYTHONPATH=src python -m fraud_detection.monitoring.advanced_drift_detection \
           data/processed/new_data
       env:
-        MLFLOW_TRACKING_URI: file:./mlruns
+        MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI || 'file:./mlruns' }}
 
     - name: Upload drift report
       if: always()
@@ -61,8 +82,8 @@ jobs:
         RECOMMENDED=$(python -c "import json; print(json.load(open('drift_report.json')).get('retrain_recommended', False))")
         PCT=$(python -c "import json; print(json.load(open('drift_report.json')).get('drift_percentage', 0))")
         if [ "$RECOMMENDED" = "True" ]; then
-          echo "Drift at ${PCT}% recommends retraining; dispatching the ML pipeline."
-          gh workflow run ml-pipeline.yml --ref "${{ github.ref_name }}"
+          echo "Drift at ${PCT}% recommends retraining; dispatching the retrain workflow."
+          gh workflow run retrain.yml --ref "${{ github.ref_name }}" -f reason="drift ${PCT}%"
         else
           echo "Drift at ${PCT}% is below the retrain threshold; no retrain."
         fi
