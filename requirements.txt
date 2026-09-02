@@ -30,6 +30,9 @@ black==24.3.0
 
 # Workflow Management
 apache-airflow==2.10.3
+# Pinned so the airflow-pulled RE2 binding uses a prebuilt wheel on 3.9/3.11/3.12;
+# newer builds dropped the cp39 wheel and fall back to a bazel source build in CI.
+google-re2==1.1.20240702
 
 # Additional utilities
 requests==2.32.4
