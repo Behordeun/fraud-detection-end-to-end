@@ -1,0 +1,27 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+scrape_configs:
+- job_name: "prometheus"
+  static_configs:
+  - targets:
+    - "localhost:9090"
+
+# The fraud-detection API when run on the host with `uvicorn` (not in this
+# compose file). host.docker.internal resolves to the host from inside the
+# container. Run the API in the same compose network instead and this becomes
+# the service name.
+- job_name: "fraud-api"
+  metrics_path: /metrics
+  static_configs:
+  - targets:
+    - "host.docker.internal:8000"
+
+# MinIO cluster metrics from the compose service.
+- job_name: "minio"
+  metrics_path: /minio/v2/metrics/cluster
+  static_configs:
+  - targets:
+    - "minio:9000"
