@@ -106,6 +106,13 @@ async def predict_fraud(transaction: TransactionData):
         result = prediction.select("prediction", "probability").collect()[0]
         is_fraud = bool(result["prediction"])
         prob_array = result["probability"].toArray()
+        # A single-class model emits a length-1 probability vector; there is no
+        # class-1 probability to report, so fail clearly instead of IndexError.
+        if len(prob_array) < 2:
+            raise HTTPException(
+                status_code=500,
+                detail="Model returned a single-class probability vector",
+            )
         fraud_prob = float(prob_array[1])  # Probability of fraud (class 1)
 
         if fraud_prob > 0.8:
@@ -119,6 +126,10 @@ async def predict_fraud(transaction: TransactionData):
             is_fraud=is_fraud, fraud_probability=fraud_prob, confidence=confidence
         )
 
+    except HTTPException:
+        # Already a well-formed HTTP error (e.g. single-class vector); propagate
+        # it rather than masking it as a generic 500.
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
 

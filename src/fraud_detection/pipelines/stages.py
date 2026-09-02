@@ -82,46 +82,52 @@ def feature_engineering() -> None:
 
 
 def train() -> None:
-    from fraud_detection.models.registry import register_and_promote
     from fraud_detection.models.train import train_model
 
     params = load_params()
     train_path = str(PROJECT_ROOT / params["data"]["engineered_dir"] / Path("train"))
+    model_dir = PROJECT_ROOT / params["paths"]["model_dir"]
     result = train_model(
-        train_path,
-        str(PROJECT_ROOT / params["paths"]["model_dir"]),
+        str(train_path),
+        str(model_dir),
         n_trees=params["model"]["n_trees"],
         max_depth=params["model"]["max_depth"],
         seed=params["model"]["seed"],
     )
 
+    # Persist the MLflow run id next to the model so the evaluate stage can
+    # promote the exact logged model on its held-out AUC.
+    run_id_file = model_dir.parent / "mlflow_run_id.txt"
+    run_id_file.write_text(result["run_id"])
+
+
+def evaluate() -> None:
+    from fraud_detection.models.evaluate import evaluate_model
+    from fraud_detection.models.registry import register_and_promote
     from fraud_detection.utils.config import (
         MLFLOW_REGISTERED_MODEL,
         MODEL_PROMOTION_MIN_AUC,
     )
 
-    register_and_promote(
-        model_uri=f"runs:/{result['run_id']}/model",
-        registered_model_name=MLFLOW_REGISTERED_MODEL,
-        auc=result["auc"],
-        min_auc=MODEL_PROMOTION_MIN_AUC,
-    )
-
-
-def evaluate() -> None:
-    from fraud_detection.models.evaluate import evaluate_model
-
     params = load_params()
     test_path = str(PROJECT_ROOT / params["data"]["engineered_dir"] / Path("test"))
-    metrics = evaluate_model(
-        str(PROJECT_ROOT / params["paths"]["model_dir"]),
-        test_path,
-    )
+    model_dir = PROJECT_ROOT / params["paths"]["model_dir"]
+    metrics = evaluate_model(str(model_dir), test_path)
 
     metrics_file = PROJECT_ROOT / params["paths"]["metrics_file"]
     with open(metrics_file, "w") as handle:
         json.dump(metrics, handle, indent=2)
     print(f"Wrote metrics to {metrics_file}")
+
+    # Gate registry promotion on the held-out test AUC, not the training AUC.
+    run_id_file = model_dir.parent / "mlflow_run_id.txt"
+    if run_id_file.exists():
+        register_and_promote(
+            model_uri=f"runs:/{run_id_file.read_text().strip()}/model",
+            registered_model_name=MLFLOW_REGISTERED_MODEL,
+            auc=metrics["auc"],
+            min_auc=MODEL_PROMOTION_MIN_AUC,
+        )
 
 
 STAGES = {

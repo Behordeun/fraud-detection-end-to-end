@@ -61,9 +61,12 @@ def register_and_promote(
     client = mlflow.tracking.MlflowClient()
     try:
         client.create_registered_model(registered_model_name)
-    except mlflow.exceptions.MlflowException:
-        # Already exists on a prior run; that is the normal steady state.
-        pass
+    except mlflow.exceptions.MlflowException as exc:
+        # RESOURCE_ALREADY_EXISTS is the normal steady state after the first
+        # run; any other registry error (auth, network, corrupt state) is real
+        # and must not be masked.
+        if getattr(exc, "error_code", "") != "RESOURCE_ALREADY_EXISTS":
+            raise
 
     version = mlflow.register_model(model_uri, registered_model_name)
 

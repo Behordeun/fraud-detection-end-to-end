@@ -79,7 +79,7 @@ def test_pipeline_model_round_trips_and_scores_raw_request(spark, tmp_path):
 
     model_path = str(tmp_path / "pipeline_model")
     result = train_model(train_path, model_path, n_trees=3, max_depth=3)
-    assert 0.0 <= result["auc"] <= 1.0
+    assert 0.0 <= result["train_auc"] <= 1.0
 
     loaded = load_model(model_path)
     assert isinstance(loaded, PipelineModel)

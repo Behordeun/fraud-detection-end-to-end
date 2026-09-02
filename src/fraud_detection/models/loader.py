@@ -12,6 +12,7 @@ import os
 
 from pyspark.ml import PipelineModel
 from pyspark.ml.classification import RandomForestClassificationModel
+from pyspark.ml.feature import VectorAssembler
 
 _PIPELINE_CLASS = "org.apache.spark.ml.PipelineModel"
 _RF_CLASS = "org.apache.spark.ml.classification.RandomForestClassificationModel"
@@ -42,3 +43,17 @@ def load_model(model_path: str):
     if model_class == _RF_CLASS:
         return RandomForestClassificationModel.load(model_path)
     raise ValueError(f"Unsupported saved model class: {model_class!r}")
+
+
+def pipeline_assembles_features(model) -> bool:
+    """True if ``model`` is a PipelineModel whose stages build the vector.
+
+    A pipeline trained on pre-assembled data has only a classifier stage and no
+    assembler, so it consumes an existing ``features`` column rather than
+    rebuilding it. Consumers use this to decide whether stripping a stale
+    ``features`` column is safe (it would remove a classifier-only pipeline's
+    only input).
+    """
+    if not isinstance(model, PipelineModel):
+        return False
+    return any(isinstance(stage, VectorAssembler) for stage in model.stages)

@@ -1,5 +1,4 @@
 import mlflow
-from pyspark.ml import PipelineModel
 from pyspark.ml.evaluation import (
     BinaryClassificationEvaluator,
     MulticlassClassificationEvaluator,
@@ -7,7 +6,7 @@ from pyspark.ml.evaluation import (
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col
 
-from fraud_detection.models.loader import load_model
+from fraud_detection.models.loader import load_model, pipeline_assembles_features
 
 
 def evaluate_model(model_path: str, test_data_path: str):
@@ -20,9 +19,10 @@ def evaluate_model(model_path: str, test_data_path: str):
     print("Loading trained model...")
     model = load_model(model_path)
 
-    # A PipelineModel assembles `features` itself; a stale vector on the input
-    # would collide with the assembler's output column, so drop it first.
-    if isinstance(model, PipelineModel) and "features" in test_data.columns:
+    # A pipeline that assembles `features` itself would collide with a stale
+    # vector on the input; drop it only in that case. A classifier-only pipeline
+    # keeps `features` as its input.
+    if pipeline_assembles_features(model) and "features" in test_data.columns:
         test_data = test_data.drop("features")
 
     print("Making predictions...")

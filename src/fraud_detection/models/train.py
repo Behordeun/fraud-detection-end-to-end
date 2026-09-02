@@ -98,19 +98,19 @@ def train_model(
     logger.info("Saving the pipeline model to %s...", model_output_path)
     pipeline_model.write().overwrite().save(model_output_path)
 
-    # Training AUC gates registry promotion downstream. Evaluation on the held
-    # out test set (evaluate stage) is the authoritative metric; this is the
-    # in-run signal the promotion gate reads.
+    # Training AUC is logged for reference only. Promotion is gated on the
+    # held-out test AUC computed by the evaluate stage, never on this optimistic
+    # in-sample number, so an overfit model cannot clear the floor.
     scored = pipeline_model.transform(train_data)
-    auc = BinaryClassificationEvaluator(
+    train_auc = BinaryClassificationEvaluator(
         labelCol="Class", rawPredictionCol="rawPrediction"
     ).evaluate(scored)
 
-    logger.info("Logging the model with MLflow (train AUC %.4f)...", auc)
+    logger.info("Logging the model with MLflow (train AUC %.4f)...", train_auc)
     with mlflow.start_run() as run:
         mlflow.log_param("n_trees", n_trees)
         mlflow.log_param("max_depth", max_depth)
-        mlflow.log_metric("train_auc", auc)
+        mlflow.log_metric("train_auc", train_auc)
 
         feature_input = train_data.select(feature_cols).limit(5).toPandas()
         prediction_output = scored.select("prediction").limit(5).toPandas()
@@ -124,26 +124,14 @@ def train_model(
         logger.info("Model logged in MLflow.")
         run_id = run.info.run_id
 
-    return {"auc": auc, "feature_columns": feature_cols, "run_id": run_id}
+    return {"train_auc": train_auc, "feature_columns": feature_cols, "run_id": run_id}
 
 
 if __name__ == "__main__":
-    from fraud_detection.models.registry import register_and_promote
-    from fraud_detection.utils.config import (
-        CURRENT_MODEL_DIR,
-        MLFLOW_REGISTERED_MODEL,
-        MODEL_PROMOTION_MIN_AUC,
-        PROCESSED_DATA_DIR,
-    )
+    from fraud_detection.utils.config import CURRENT_MODEL_DIR, PROCESSED_DATA_DIR
 
     logging.basicConfig(level=logging.INFO)
     TRAIN_DATA_PATH = str(PROCESSED_DATA_DIR / "engineered" / "train")
     MODEL_OUTPUT_PATH = str(CURRENT_MODEL_DIR)
 
-    result = train_model(TRAIN_DATA_PATH, MODEL_OUTPUT_PATH)
-    register_and_promote(
-        model_uri=f"runs:/{result['run_id']}/model",
-        registered_model_name=MLFLOW_REGISTERED_MODEL,
-        auc=result["auc"],
-        min_auc=MODEL_PROMOTION_MIN_AUC,
-    )
+    train_model(TRAIN_DATA_PATH, MODEL_OUTPUT_PATH)

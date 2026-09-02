@@ -2,14 +2,13 @@ import logging
 from typing import Optional
 
 import mlflow
-from pyspark.ml import PipelineModel
 from pyspark.ml.linalg import VectorUDT
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, lit, udf
 from pyspark.sql.types import DoubleType
 
 from fraud_detection.data.feature_engineering import apply_feature_transforms
-from fraud_detection.models.loader import load_model
+from fraud_detection.models.loader import load_model, pipeline_assembles_features
 
 REQUIRED_COLUMNS = ["features"]
 
@@ -59,7 +58,7 @@ def make_predictions(
     logger.info("Loading trained model...")
     model = load_model(model_path)
 
-    if isinstance(model, PipelineModel):
+    if pipeline_assembles_features(model):
         # The pipeline assembles `features`; feed it engineered source columns
         # (drop any stale vector so the assembler's output does not collide).
         if new_data.rdd.isEmpty():
@@ -71,7 +70,8 @@ def make_predictions(
         if string_cols:
             new_data = new_data.drop(*string_cols)
     else:
-        # Bare classifier: the input must already carry the features vector.
+        # Bare classifier or a classifier-only pipeline: the input must already
+        # carry the features vector.
         missing = [c for c in REQUIRED_COLUMNS if c not in new_data.columns]
         if missing:
             raise ValueError(f"Missing required columns in input data: {missing}")
