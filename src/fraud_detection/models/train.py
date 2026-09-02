@@ -63,8 +63,8 @@ def train_model(train_data_path: str, model_output_path: str):
 
 
 if __name__ == "__main__":
-    from fraud_detection.utils.config import PROCESSED_DATA_DIR, CURRENT_MODEL_DIR
-    
+    from fraud_detection.utils.config import CURRENT_MODEL_DIR, PROCESSED_DATA_DIR
+
     TRAIN_DATA_PATH = str(PROCESSED_DATA_DIR / "engineered" / "train")
     MODEL_OUTPUT_PATH = str(CURRENT_MODEL_DIR)
 

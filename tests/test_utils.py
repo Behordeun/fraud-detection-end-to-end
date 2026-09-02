@@ -174,7 +174,7 @@ def test_generate_drift_report(tmpdir):
 # ------------------------------
 
 
-@patch("src.utils.boto3.client")
+@patch("src.fraud_detection.utils.utils.boto3.client")
 def test_connect_to_minio(mock_boto_client):
     """
     Test that connect_to_minio returns a valid MinIO client.
@@ -206,7 +206,7 @@ def test_connect_to_minio(mock_boto_client):
     assert client == mock_client
 
 
-@patch("src.utils.boto3.client")
+@patch("src.fraud_detection.utils.utils.boto3.client")
 def test_upload_to_minio(mock_boto_client):
     """
     Test that upload_to_minio calls the correct boto3 method.
@@ -227,8 +227,8 @@ def test_upload_to_minio(mock_boto_client):
 # ------------------------------
 
 
-@patch("src.utils.mlflow.set_tracking_uri")
-@patch("src.utils.mlflow.set_experiment")
+@patch("src.fraud_detection.utils.utils.mlflow.set_tracking_uri")
+@patch("src.fraud_detection.utils.utils.mlflow.set_experiment")
 def test_setup_mlflow_experiment(mock_set_experiment, mock_set_tracking_uri):
     """
     Test that setup_mlflow_experiment correctly configures MLflow.
@@ -239,7 +239,7 @@ def test_setup_mlflow_experiment(mock_set_experiment, mock_set_tracking_uri):
     mock_set_experiment.assert_called_once_with("TestExperiment")
 
 
-@patch("src.utils.mlflow.log_metric")
+@patch("src.fraud_detection.utils.utils.mlflow.log_metric")
 def test_log_metrics_to_mlflow(mock_log_metric):
     """
     Test that log_metrics_to_mlflow logs metrics correctly.
@@ -251,7 +251,7 @@ def test_log_metrics_to_mlflow(mock_log_metric):
     mock_log_metric.assert_any_call("precision", 0.85)
 
 
-@patch("src.utils.mlflow.log_artifact")
+@patch("src.fraud_detection.utils.utils.mlflow.log_artifact")
 def test_log_artifacts_to_mlflow(mock_log_artifact):
     """
     Test that log_artifacts_to_mlflow logs artifacts correctly.

@@ -31,16 +31,12 @@ KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "fraud-transactions")
 
 # Model configuration
 DEFAULT_MODEL_PARAMS = {
-    "random_forest": {
-        "n_estimators": 100,
-        "max_depth": 10,
-        "random_state": 42
-    }
+    "random_forest": {"n_estimators": 100, "max_depth": 10, "random_state": 42}
 }
 
 # Drift detection thresholds
 DRIFT_THRESHOLDS = {
     "psi_threshold": 0.1,
     "ks_p_value_threshold": 0.05,
-    "js_distance_threshold": 0.1
+    "js_distance_threshold": 0.1,
 }

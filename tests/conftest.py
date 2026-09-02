@@ -7,7 +7,7 @@ import pytest
 project_root = Path(__file__).resolve().parent.parent  # Points to the project root
 sys.path.insert(0, str(project_root / "src"))  # Add `src` to Python's search path
 
-from pyspark.sql import SparkSession
+from pyspark.sql import SparkSession  # noqa: E402
 
 
 @pytest.fixture(scope="session")

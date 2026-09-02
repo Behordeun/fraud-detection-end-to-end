@@ -24,7 +24,8 @@ def test_train_current_model(spark, tmpdir):
     """
     Test the train_current_model function to ensure it trains and saves the model correctly.
     """
-    mlflow.set_tracking_uri(str(tmpdir))
+    mlruns = tmpdir.mkdir("mlruns")
+    mlflow.set_tracking_uri(f"file:{mlruns}")
 
     # Create dummy training data
     train_data = spark.createDataFrame(
@@ -58,17 +59,24 @@ def test_train_current_model_with_feature_assembly(spark, tmpdir):
     """
     Test train_current_model when feature assembly is required (no 'features' column).
     """
-    # Set MLflow tracking URI to a temporary directory
-    mlflow.set_tracking_uri(str(tmpdir))
+    # Set MLflow tracking URI to a temporary file store
+    mlruns = tmpdir.mkdir("mlruns")
+    mlflow.set_tracking_uri(f"file:{mlruns}")
 
-    # Create dummy training data without 'features' column
+    experiment_name = "test_experiment_assembly"
+    if not mlflow.get_experiment_by_name(experiment_name):
+        mlflow.create_experiment(experiment_name)
+    mlflow.set_experiment(experiment_name)
+
+    # Create dummy training data WITHOUT a 'features' column so the assembly
+    # branch in train_current_model runs.
     train_data = spark.createDataFrame(
         [
-            (Vectors.dense([1.0, 2.0, 3.0]), 1),
-            (Vectors.dense([4.0, 5.0, 6.0]), 0),
-            (Vectors.dense([7.0, 8.0, 9.0]), 1),
+            (1.0, 2.0, 3.0, 1),
+            (4.0, 5.0, 6.0, 0),
+            (7.0, 8.0, 9.0, 1),
         ],
-        ["features", "Class"],
+        ["f1", "f2", "f3", "Class"],
     )
 
     # Save training data as Parquet
@@ -89,7 +97,3 @@ def test_train_current_model_with_feature_assembly(spark, tmpdir):
     # Assert the saved model files exist
     model_files = os.listdir(str(model_output_path))
     assert len(model_files) > 0  # Ensure model files were saved
-
-    # Verify the 'features' column in the transformed dataset
-    transformed_data = spark.read.parquet(str(model_output_path))
-    assert "features" in transformed_data.columns

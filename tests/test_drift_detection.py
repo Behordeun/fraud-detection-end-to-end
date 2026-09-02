@@ -11,7 +11,10 @@ from src.fraud_detection.monitoring.data_drift import (
     compare_distributions,
     monitor_data_drift,
 )
-from src.fraud_detection.monitoring.model_drift import evaluate_model, monitor_model_drift
+from src.fraud_detection.monitoring.model_drift import (
+    evaluate_model,
+    monitor_model_drift,
+)
 
 
 @pytest.fixture(scope="module")
@@ -51,7 +54,7 @@ def test_compare_distributions():
     assert drift_report["amount"]["drift_detected"] is True
 
 
-@patch("src.monitoring.data_drift.pd.DataFrame.to_csv")
+@patch("src.fraud_detection.monitoring.data_drift.pd.DataFrame.to_csv")
 def test_monitor_data_drift(mock_to_csv, spark, tmpdir):
     """
     Test monitor_data_drift computes drift and generates a report.

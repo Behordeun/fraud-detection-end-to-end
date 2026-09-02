@@ -59,7 +59,9 @@ def test_create_amount_features_transforms_and_categorizes(spark):
 
     result = create_amount_features(data)
 
-    assert {"Amount_log", "Amount_sqrt", "Amount_Category"}.issubset(set(result.columns))
+    assert {"Amount_log", "Amount_sqrt", "Amount_Category"}.issubset(
+        set(result.columns)
+    )
 
     rows = result.orderBy("Amount").collect()
     # Zero amount: log(0 + 1) == 0, sqrt(0) == 0, category "Zero"
@@ -89,7 +91,9 @@ def test_create_pca_features_computes_magnitude_and_group_sums(spark):
     }.issubset(set(result.columns))
 
     out = result.collect()[0]
-    assert out["PCA_Magnitude"] == pytest.approx(math.sqrt(3.0**2 + 4.0**2 + 2.0**2 + 7.0**2))
+    assert out["PCA_Magnitude"] == pytest.approx(
+        math.sqrt(3.0**2 + 4.0**2 + 2.0**2 + 7.0**2)
+    )
     assert out["V1_to_V10_sum"] == pytest.approx(7.0)  # V1 + V2
     assert out["V11_to_V20_sum"] == pytest.approx(2.0)  # V15
     assert out["V21_to_V28_sum"] == pytest.approx(7.0)  # V25

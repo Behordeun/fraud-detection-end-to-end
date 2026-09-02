@@ -29,10 +29,10 @@ def mock_config_path(tmpdir):
     return str(config_file)
 
 
-@patch("src.pipelines.mlflow_pipeline.subprocess.run")
-@patch("src.pipelines.mlflow_pipeline.setup_mlflow_experiment")
-@patch("src.pipelines.mlflow_pipeline.log_metrics_to_mlflow")
-@patch("src.pipelines.mlflow_pipeline.mlflow")
+@patch("src.fraud_detection.pipelines.mlflow_pipeline.subprocess.run")
+@patch("src.fraud_detection.pipelines.mlflow_pipeline.setup_mlflow_experiment")
+@patch("src.fraud_detection.pipelines.mlflow_pipeline.log_metrics_to_mlflow")
+@patch("src.fraud_detection.pipelines.mlflow_pipeline.mlflow")
 def test_run_mlflow_pipeline(
     mock_mlflow,
     mock_log_metrics_to_mlflow,
@@ -57,8 +57,8 @@ def test_run_mlflow_pipeline(
 
     # Validate subprocess calls
     expected_calls = [
-        call(["python", "src/models/train.py"], check=True),
-        call(["python", "src/models/evaluate.py"], check=True),
+        call(["python", "src/fraud_detection/models/train.py"], check=True),
+        call(["python", "src/fraud_detection/models/evaluate.py"], check=True),
     ]
     mock_subprocess_run.assert_has_calls(expected_calls, any_order=False)
 

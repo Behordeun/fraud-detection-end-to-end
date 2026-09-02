@@ -236,4 +236,3 @@ def test_save_preprocessed_data_with_empty_data(spark, tmpdir):
     assert loaded_train_data.count() == 0
     assert loaded_test_data.count() == 0
     assert loaded_reserve_data.count() == 0
-
