@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 import mlflow
 from pyspark.ml.classification import RandomForestClassificationModel
@@ -13,7 +14,7 @@ def make_predictions(
     model_path: str,
     new_data_path: str,
     output_path: str,
-    partition_by: str | None = None,
+    partition_by: Optional[str] = None,
 ):
     """Score new data with a trained model and write the predictions.
 
