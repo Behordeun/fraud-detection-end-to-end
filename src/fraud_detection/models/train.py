@@ -6,7 +6,13 @@ from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import SparkSession
 
 
-def train_model(train_data_path: str, model_output_path: str):
+def train_model(
+    train_data_path: str,
+    model_output_path: str,
+    n_trees: int = 100,
+    max_depth: int = 10,
+    seed: int = 42,
+):
     """
     Train a machine learning model using PySpark and log it with MLflow.
     """
@@ -33,7 +39,11 @@ def train_model(train_data_path: str, model_output_path: str):
 
     print("Defining the RandomForestClassifier...")
     rf = RandomForestClassifier(
-        featuresCol="features", labelCol="Class", numTrees=100, maxDepth=10
+        featuresCol="features",
+        labelCol="Class",
+        numTrees=n_trees,
+        maxDepth=max_depth,
+        seed=seed,
     )
 
     print("Training the model...")

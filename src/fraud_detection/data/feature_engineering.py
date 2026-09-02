@@ -1,6 +1,7 @@
 from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import col, log, sqrt, when
+from pyspark.sql.functions import abs as spark_abs
+from pyspark.sql.functions import col, greatest, lit, log, sqrt, when
 
 
 def create_time_features(df: DataFrame) -> DataFrame:
@@ -26,11 +27,11 @@ def create_amount_features(df: DataFrame) -> DataFrame:
     """Create amount-based features."""
     print("Creating amount-based features...")
 
-    # Log transformation of amount (add 1 to handle zero values)
-    df = df.withColumn("Amount_log", log(col("Amount") + 1))
-
-    # Square root transformation
-    df = df.withColumn("Amount_sqrt", sqrt(col("Amount")))
+    # Amount is standardized upstream and can be negative, which makes a naive
+    # log/sqrt produce NaN and breaks the downstream VectorAssembler. Clamp to a
+    # safe domain: log1p on a value floored at 0, sqrt on the magnitude.
+    df = df.withColumn("Amount_log", log(greatest(col("Amount"), lit(0.0)) + 1))
+    df = df.withColumn("Amount_sqrt", sqrt(spark_abs(col("Amount"))))
 
     # Amount categories
     df = df.withColumn(
@@ -97,8 +98,21 @@ def engineer_features(input_path: str, output_path: str):
         dataset = create_pca_features(dataset)
         dataset = create_interaction_features(dataset)
 
-        # Update feature vector
-        feature_cols = [c for c in dataset.columns if c not in ["Class", "features"]]
+        # Preprocessing already assembled a `features` vector; drop it so this
+        # stage can rebuild the vector over the newly engineered columns.
+        if "features" in dataset.columns:
+            dataset = dataset.drop("features")
+
+        # Assemble the feature vector from numeric columns only. The string
+        # categoricals (Time_Period, Amount_Category) are human-readable labels
+        # derived from numeric features already in the vector, and VectorAssembler
+        # cannot consume string columns, so they are excluded.
+        excluded = {"Class", "features"}
+        feature_cols = [
+            name
+            for name, dtype in dataset.dtypes
+            if name not in excluded and dtype not in ("string",)
+        ]
         assembler = VectorAssembler(inputCols=feature_cols, outputCol="features")
         dataset = assembler.transform(dataset)
 

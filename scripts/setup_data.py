@@ -1,82 +1,124 @@
 #!/usr/bin/env python3
+"""Acquire the credit-card fraud dataset for the pipeline.
+
+Resolution order:
+1. A real dataset already at data/raw/creditcard_2023.csv is used as-is.
+2. If the Kaggle CLI and credentials are present, download the real dataset.
+3. Otherwise generate a deterministic synthetic dataset with the same schema,
+   so the pipeline is runnable without Kaggle access.
+
+The full Kaggle dataset is large and license-restricted, so it is never
+committed; DVC tracks it (see dvc.yaml). A small committed sample for CI is
+produced with `--sample`.
 """
-Script to download and setup the Credit Card Fraud Detection dataset.
-"""
-import os
-import pandas as pd
-import requests
+
+import argparse
+import subprocess
+import sys
 from pathlib import Path
 
-def download_sample_data():
-    """Create a sample dataset for testing if real data is not available."""
-    print("Creating sample fraud detection dataset...")
-    
-    # Create sample data with similar structure to credit card fraud dataset
-    import numpy as np
-    np.random.seed(42)
-    
-    n_samples = 10000
-    n_fraud = int(n_samples * 0.002)  # 0.2% fraud rate
-    
-    # Generate PCA features (V1-V28)
-    data = {}
-    for i in range(1, 29):
-        data[f'V{i}'] = np.random.normal(0, 1, n_samples)
-    
-    # Generate Time (seconds from first transaction)
-    data['Time'] = np.random.uniform(0, 172800, n_samples)  # 48 hours
-    
-    # Generate Amount
-    data['Amount'] = np.random.lognormal(3, 1.5, n_samples)
-    
-    # Generate Class (0 = normal, 1 = fraud)
-    data['Class'] = np.zeros(n_samples)
-    fraud_indices = np.random.choice(n_samples, n_fraud, replace=False)
-    data['Class'][fraud_indices] = 1
-    
-    # Make fraud transactions more extreme
-    for idx in fraud_indices:
-        # Modify some V features for fraud cases
-        for v in ['V1', 'V2', 'V3', 'V4', 'V14']:
-            if v in data:
-                data[v][idx] *= np.random.uniform(2, 5)
-        # Fraud transactions tend to have different amounts
-        data['Amount'][idx] *= np.random.uniform(0.1, 3)
-    
-    df = pd.DataFrame(data)
-    return df
+import numpy as np
+import pandas as pd
 
-def setup_data_directory():
-    """Setup data directory structure and download/create dataset."""
-    
-    # Create directories
-    data_dir = Path("data")
-    raw_dir = data_dir / "raw"
-    processed_dir = data_dir / "processed"
-    
-    raw_dir.mkdir(parents=True, exist_ok=True)
-    processed_dir.mkdir(parents=True, exist_ok=True)
-    predictions_dir = data_dir / "predictions"
-    predictions_dir.mkdir(parents=True, exist_ok=True)
-    
-    dataset_path = raw_dir / "creditcard_2023.csv"
-    
-    if dataset_path.exists():
-        print(f"Real dataset found at {dataset_path}")
-        # Load and display basic info about the real dataset
-        df = pd.read_csv(dataset_path)
-        print(f"Dataset shape: {df.shape}")
-        print(f"Fraud rate: {df['Class'].mean():.4f}")
-        print(f"Columns: {list(df.columns)}")
-    else:
-        print("Dataset not found. Creating sample dataset...")
-        df = download_sample_data()
-        df.to_csv(dataset_path, index=False)
-        print(f"Sample dataset created at {dataset_path}")
-        print(f"Dataset shape: {df.shape}")
-        print(f"Fraud rate: {df['Class'].mean():.4f}")
-    
-    return dataset_path
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+RAW_DIR = PROJECT_ROOT / "data" / "raw"
+DATASET_PATH = RAW_DIR / "creditcard_2023.csv"
+SAMPLE_PATH = RAW_DIR / "creditcard_sample.csv"
+KAGGLE_DATASET = "nelgiriyewithana/credit-card-fraud-detection-dataset-2023"
+
+FEATURE_COLUMNS = [f"V{i}" for i in range(1, 29)]
+
+
+def generate_synthetic(n_samples: int, seed: int = 42) -> pd.DataFrame:
+    """Build a synthetic dataset matching the real schema (Time, V1-V28, Amount, Class)."""
+    rng = np.random.default_rng(seed)
+    frame = {f"V{i}": rng.normal(0, 1, n_samples) for i in range(1, 29)}
+    frame["Time"] = rng.uniform(0, 172800, n_samples)
+    frame["Amount"] = rng.lognormal(3, 1.5, n_samples)
+
+    labels = np.zeros(n_samples)
+    n_fraud = max(1, int(n_samples * 0.02))
+    fraud_idx = rng.choice(n_samples, n_fraud, replace=False)
+    labels[fraud_idx] = 1
+    # Push fraud rows off the normal distribution so the target is learnable.
+    for col in ("V1", "V2", "V3", "V4", "V14"):
+        frame[col][fraud_idx] *= rng.uniform(2, 5, n_fraud)
+    frame["Amount"][fraud_idx] *= rng.uniform(0.1, 3, n_fraud)
+    frame["Class"] = labels
+
+    ordered = ["Time"] + FEATURE_COLUMNS + ["Amount", "Class"]
+    return pd.DataFrame(frame)[ordered]
+
+
+def try_kaggle_download() -> bool:
+    """Download the real dataset via the Kaggle CLI. Returns True on success."""
+    try:
+        subprocess.run(
+            [
+                "kaggle",
+                "datasets",
+                "download",
+                "-d",
+                KAGGLE_DATASET,
+                "-p",
+                str(RAW_DIR),
+                "--unzip",
+            ],
+            check=True,
+        )
+        return DATASET_PATH.exists()
+    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        print(f"Kaggle download unavailable ({exc}); falling back to synthetic data.")
+        return False
+
+
+def summarize(path: Path) -> None:
+    frame = pd.read_csv(path)
+    print(f"Dataset at {path}")
+    print(f"  shape: {frame.shape}")
+    print(f"  fraud rate: {frame['Class'].mean():.4f}")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--sample",
+        action="store_true",
+        help="Write a small committed CI sample to creditcard_sample.csv.",
+    )
+    parser.add_argument(
+        "--sample-rows",
+        type=int,
+        default=2000,
+        help="Rows for the CI sample (default 2000).",
+    )
+    parser.add_argument(
+        "--synthetic-rows",
+        type=int,
+        default=10000,
+        help="Rows for the synthetic full dataset (default 10000).",
+    )
+    args = parser.parse_args()
+
+    RAW_DIR.mkdir(parents=True, exist_ok=True)
+
+    if args.sample:
+        generate_synthetic(args.sample_rows).to_csv(SAMPLE_PATH, index=False)
+        summarize(SAMPLE_PATH)
+        return
+
+    if DATASET_PATH.exists():
+        print("Real dataset already present.")
+        summarize(DATASET_PATH)
+        return
+
+    if try_kaggle_download():
+        summarize(DATASET_PATH)
+        return
+
+    generate_synthetic(args.synthetic_rows).to_csv(DATASET_PATH, index=False)
+    summarize(DATASET_PATH)
+
 
 if __name__ == "__main__":
-    setup_data_directory()
+    sys.exit(main())

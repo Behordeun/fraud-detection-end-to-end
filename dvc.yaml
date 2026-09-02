@@ -1,0 +1,51 @@
+stages:
+  preprocess:
+    cmd: PYTHONPATH=src python -m fraud_detection.pipelines.stages preprocess
+    deps:
+      - src/fraud_detection/data/preprocessing.py
+      - src/fraud_detection/pipelines/stages.py
+      - data/raw/creditcard_2023.csv
+    params:
+      - data.target_column
+      - split.test_size
+      - split.reserve_size
+      - split.seed
+    outs:
+      - data/processed/train
+      - data/processed/test
+      - data/processed/new_data
+
+  feature_engineering:
+    cmd: PYTHONPATH=src python -m fraud_detection.pipelines.stages feature_engineering
+    deps:
+      - src/fraud_detection/data/feature_engineering.py
+      - src/fraud_detection/pipelines/stages.py
+      - data/processed/train
+      - data/processed/test
+    outs:
+      - data/processed/engineered/train
+      - data/processed/engineered/test
+
+  train:
+    cmd: PYTHONPATH=src python -m fraud_detection.pipelines.stages train
+    deps:
+      - src/fraud_detection/models/train.py
+      - src/fraud_detection/pipelines/stages.py
+      - data/processed/engineered/train
+    params:
+      - model.n_trees
+      - model.max_depth
+      - model.seed
+    outs:
+      - models/current_model
+
+  evaluate:
+    cmd: PYTHONPATH=src python -m fraud_detection.pipelines.stages evaluate
+    deps:
+      - src/fraud_detection/models/evaluate.py
+      - src/fraud_detection/pipelines/stages.py
+      - models/current_model
+      - data/processed/engineered/test
+    metrics:
+      - metrics.json:
+          cache: false

@@ -1,0 +1,19 @@
+data:
+  raw_file: data/raw/creditcard_2023.csv
+  processed_dir: data/processed
+  engineered_dir: data/processed/engineered
+  target_column: Class
+
+split:
+  test_size: 0.3
+  reserve_size: 0.1
+  seed: 42
+
+model:
+  n_trees: 100
+  max_depth: 10
+  seed: 42
+
+paths:
+  model_dir: models/current_model
+  metrics_file: metrics.json
