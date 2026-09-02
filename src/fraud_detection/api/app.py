@@ -131,12 +131,12 @@ async def predict_fraud(transaction: TransactionData):
                 )
             fraud_prob = float(prob_array[1])  # Probability of fraud (class 1)
 
-        if fraud_prob > 0.8:
-            confidence = "high"
-        elif fraud_prob > 0.6:
-            confidence = "medium"
-        else:
-            confidence = "low"
+            if fraud_prob > 0.8:
+                confidence = "high"
+            elif fraud_prob > 0.6:
+                confidence = "medium"
+            else:
+                confidence = "low"
 
         PREDICTION_REQUESTS.labels(outcome="fraud" if is_fraud else "legit").inc()
         return PredictionResponse(
