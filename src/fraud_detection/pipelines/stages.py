@@ -57,6 +57,12 @@ def preprocess() -> None:
     test_df = apply_amount_scaler(test_df, scaler_model, assembler)
     reserve_df = apply_amount_scaler(reserve_df, scaler_model, assembler)
 
+    # Persist the fitted scaler so the serving path scales Amount with the same
+    # training-distribution statistics instead of re-fitting per request.
+    from fraud_detection.utils.config import AMOUNT_SCALER_DIR
+
+    scaler_model.write().overwrite().save(str(AMOUNT_SCALER_DIR))
+
     # Assemble the model feature vector on each split. Reserve excludes the
     # target (dropped during the split), so only train/test carry it.
     train_df = set_features_and_target(train_df, target)
@@ -76,16 +82,29 @@ def feature_engineering() -> None:
 
 
 def train() -> None:
+    from fraud_detection.models.registry import register_and_promote
     from fraud_detection.models.train import train_model
 
     params = load_params()
     train_path = str(PROJECT_ROOT / params["data"]["engineered_dir"] / Path("train"))
-    train_model(
+    result = train_model(
         train_path,
         str(PROJECT_ROOT / params["paths"]["model_dir"]),
         n_trees=params["model"]["n_trees"],
         max_depth=params["model"]["max_depth"],
         seed=params["model"]["seed"],
+    )
+
+    from fraud_detection.utils.config import (
+        MLFLOW_REGISTERED_MODEL,
+        MODEL_PROMOTION_MIN_AUC,
+    )
+
+    register_and_promote(
+        model_uri=f"runs:/{result['run_id']}/model",
+        registered_model_name=MLFLOW_REGISTERED_MODEL,
+        auc=result["auc"],
+        min_auc=MODEL_PROMOTION_MIN_AUC,
     )
 
 

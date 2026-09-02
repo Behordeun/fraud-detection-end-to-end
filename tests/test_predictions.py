@@ -241,8 +241,9 @@ def test_invalid_model_path(spark, setup_test_data):
     # Provide an invalid model path
     invalid_model_path = "invalid/path/to/model"
 
-    # Expect an Exception
-    with pytest.raises(Exception, match="Input path does not exist"):
+    # The shared loader reads the saved model's metadata first, so a bad path
+    # fails there with a clear message.
+    with pytest.raises(Exception, match="Model metadata not found"):
         make_predictions(
             new_data_path=paths["input_path"],
             model_path=invalid_model_path,

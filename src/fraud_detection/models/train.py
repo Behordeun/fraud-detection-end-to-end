@@ -1,9 +1,35 @@
+import logging
+
 import mlflow
 import mlflow.spark
 from mlflow.models.signature import infer_signature
+from pyspark.ml import Pipeline
 from pyspark.ml.classification import RandomForestClassifier
+from pyspark.ml.evaluation import BinaryClassificationEvaluator
 from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import SparkSession
+
+from fraud_detection.data.feature_engineering import feature_vector_columns
+
+logger = logging.getLogger(__name__)
+
+
+def _build_pipeline(feature_cols, n_trees, max_depth, seed) -> Pipeline:
+    """Assembler + classifier as one Pipeline so serving replays training.
+
+    Bundling the VectorAssembler with the RandomForestClassifier means the saved
+    PipelineModel carries the exact feature-assembly step, and the serving path
+    cannot assemble a different vector than training did.
+    """
+    assembler = VectorAssembler(inputCols=feature_cols, outputCol="features")
+    classifier = RandomForestClassifier(
+        featuresCol="features",
+        labelCol="Class",
+        numTrees=n_trees,
+        maxDepth=max_depth,
+        seed=seed,
+    )
+    return Pipeline(stages=[assembler, classifier])
 
 
 def train_model(
@@ -13,10 +39,13 @@ def train_model(
     max_depth: int = 10,
     seed: int = 42,
 ):
+    """Train a fraud model, save it as a Spark PipelineModel, and log to MLflow.
+
+    The saved artifact is a ``PipelineModel`` bundling the feature assembler and
+    the classifier, so inference reproduces training's feature vector exactly.
+    The model is registered and gated on AUC when a Model Registry backend is
+    configured.
     """
-    Train a machine learning model using PySpark and log it with MLflow.
-    """
-    # Create a Spark session
     spark = (
         SparkSession.builder.appName("CreditCardFraudTraining")
         .config("spark.driver.memory", "4g")
@@ -24,58 +53,97 @@ def train_model(
         .getOrCreate()
     )
 
-    print("Loading training data...")
+    logger.info("Loading training data...")
     train_data = spark.read.parquet(train_data_path)
 
-    # Ensure the 'features' column is set up correctly
-    if "features" not in train_data.columns:
-        print("Assembling feature columns into a single 'features' column...")
-        feature_columns = [col for col in train_data.columns if col != "Class"]
-        assembler = VectorAssembler(inputCols=feature_columns, outputCol="features")
-        train_data = assembler.transform(train_data).select("features", "Class")
+    if train_data.rdd.isEmpty():
+        raise ValueError("Cannot train on empty data.")
 
-    # Convert integer columns to double to prevent MLflow warnings
     train_data = train_data.withColumn("Class", train_data["Class"].cast("double"))
 
-    print("Defining the RandomForestClassifier...")
-    rf = RandomForestClassifier(
-        featuresCol="features",
-        labelCol="Class",
-        numTrees=n_trees,
-        maxDepth=max_depth,
-        seed=seed,
-    )
+    # Two supported input shapes:
+    #   - engineered frame with raw/engineered numeric columns -> the pipeline's
+    #     assembler builds the vector (the authoritative, serving-shared step).
+    #   - a frame that already carries only a `features` vector -> train the
+    #     classifier on it directly with no assembler stage.
+    source_cols = feature_vector_columns(train_data)
+    if source_cols:
+        if "features" in train_data.columns:
+            train_data = train_data.drop("features")
+            source_cols = feature_vector_columns(train_data)
+        logger.info("Fitting the assembler + RandomForest pipeline...")
+        pipeline = _build_pipeline(source_cols, n_trees, max_depth, seed)
+        feature_cols = source_cols
+    elif "features" in train_data.columns:
+        logger.info("Fitting RandomForest on a pre-assembled features vector...")
+        pipeline = Pipeline(
+            stages=[
+                RandomForestClassifier(
+                    featuresCol="features",
+                    labelCol="Class",
+                    numTrees=n_trees,
+                    maxDepth=max_depth,
+                    seed=seed,
+                )
+            ]
+        )
+        feature_cols = ["features"]
+    else:
+        raise ValueError(
+            "Training data has no feature columns and no 'features' vector."
+        )
 
-    print("Training the model...")
-    rf_model = rf.fit(train_data)
+    pipeline_model = pipeline.fit(train_data)
 
-    print(f"Saving the model to {model_output_path}...")
-    rf_model.write().overwrite().save(model_output_path)
-    print("Model saved successfully.")
+    logger.info("Saving the pipeline model to %s...", model_output_path)
+    pipeline_model.write().overwrite().save(model_output_path)
 
-    # Log the model with MLflow
-    print("Logging the model with MLflow...")
-    with mlflow.start_run():
-        # Create an input example for MLflow
-        input_example = train_data.limit(1).toPandas()
-        input_example["features"] = input_example["features"].apply(lambda x: list(x))
+    # Training AUC gates registry promotion downstream. Evaluation on the held
+    # out test set (evaluate stage) is the authoritative metric; this is the
+    # in-run signal the promotion gate reads.
+    scored = pipeline_model.transform(train_data)
+    auc = BinaryClassificationEvaluator(
+        labelCol="Class", rawPredictionCol="rawPrediction"
+    ).evaluate(scored)
 
-        # Infer the model's input and output signature
-        signature = infer_signature(train_data.toPandas(), input_example)
+    logger.info("Logging the model with MLflow (train AUC %.4f)...", auc)
+    with mlflow.start_run() as run:
+        mlflow.log_param("n_trees", n_trees)
+        mlflow.log_param("max_depth", max_depth)
+        mlflow.log_metric("train_auc", auc)
 
-        # Log the model to MLflow
+        feature_input = train_data.select(feature_cols).limit(5).toPandas()
+        prediction_output = scored.select("prediction").limit(5).toPandas()
+        signature = infer_signature(feature_input, prediction_output)
+
         mlflow.spark.log_model(
-            rf_model,
+            pipeline_model,
             artifact_path="model",
             signature=signature,
         )
-        print("Model logged in MLflow.")
+        logger.info("Model logged in MLflow.")
+        run_id = run.info.run_id
+
+    return {"auc": auc, "feature_columns": feature_cols, "run_id": run_id}
 
 
 if __name__ == "__main__":
-    from fraud_detection.utils.config import CURRENT_MODEL_DIR, PROCESSED_DATA_DIR
+    from fraud_detection.models.registry import register_and_promote
+    from fraud_detection.utils.config import (
+        CURRENT_MODEL_DIR,
+        MLFLOW_REGISTERED_MODEL,
+        MODEL_PROMOTION_MIN_AUC,
+        PROCESSED_DATA_DIR,
+    )
 
+    logging.basicConfig(level=logging.INFO)
     TRAIN_DATA_PATH = str(PROCESSED_DATA_DIR / "engineered" / "train")
     MODEL_OUTPUT_PATH = str(CURRENT_MODEL_DIR)
 
-    train_model(TRAIN_DATA_PATH, MODEL_OUTPUT_PATH)
+    result = train_model(TRAIN_DATA_PATH, MODEL_OUTPUT_PATH)
+    register_and_promote(
+        model_uri=f"runs:/{result['run_id']}/model",
+        registered_model_name=MLFLOW_REGISTERED_MODEL,
+        auc=result["auc"],
+        min_auc=MODEL_PROMOTION_MIN_AUC,
+    )

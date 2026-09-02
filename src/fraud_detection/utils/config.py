@@ -17,6 +17,15 @@ PREDICTIONS_DIR = DATA_DIR / "predictions"
 # Model paths
 CURRENT_MODEL_DIR = MODELS_DIR / "current_model"
 MODEL_REGISTRY_DIR = MODELS_DIR / "registry"
+# Fitted Amount StandardScaler persisted at preprocess time and reloaded for
+# serving so inference scales with the training distribution (no leakage).
+AMOUNT_SCALER_DIR = MODELS_DIR / "amount_scaler"
+
+# MLflow Model Registry
+MLFLOW_REGISTERED_MODEL = os.getenv("MLFLOW_REGISTERED_MODEL", "fraud-detection-rf")
+# A newly trained model is promoted in the registry only if its AUC clears this
+# floor. Keeps a regression from silently becoming the served model.
+MODEL_PROMOTION_MIN_AUC = float(os.getenv("MODEL_PROMOTION_MIN_AUC", "0.90"))
 
 # API configuration
 API_HOST = os.getenv("API_HOST", "0.0.0.0")

@@ -1,11 +1,13 @@
 import mlflow
-from pyspark.ml.classification import RandomForestClassificationModel
+from pyspark.ml import PipelineModel
 from pyspark.ml.evaluation import (
     BinaryClassificationEvaluator,
     MulticlassClassificationEvaluator,
 )
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col
+
+from fraud_detection.models.loader import load_model
 
 
 def evaluate_model(model_path: str, test_data_path: str):
@@ -16,7 +18,12 @@ def evaluate_model(model_path: str, test_data_path: str):
     test_data = spark.read.parquet(test_data_path)
 
     print("Loading trained model...")
-    model = RandomForestClassificationModel.load(model_path)
+    model = load_model(model_path)
+
+    # A PipelineModel assembles `features` itself; a stale vector on the input
+    # would collide with the assembler's output column, so drop it first.
+    if isinstance(model, PipelineModel) and "features" in test_data.columns:
+        test_data = test_data.drop("features")
 
     print("Making predictions...")
     predictions = model.transform(test_data)
