@@ -9,6 +9,7 @@ plain CI step rather than through the model.
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -39,6 +40,21 @@ def check_gate(metrics_path: str, metric: str, minimum: float) -> int:
         return 1
 
     value = metrics[metric]
+    # Fail closed on a value that cannot be meaningfully compared. A non-numeric
+    # value would crash the comparison; NaN would slip through (NaN < x is
+    # False), so an undefined AUC must not pass the gate.
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        print(
+            f"GATE FAIL: metric {metric!r} is not numeric: {value!r}",
+            file=sys.stderr,
+        )
+        return 1
+    if not math.isfinite(value):
+        print(
+            f"GATE FAIL: metric {metric!r} is not finite: {value!r}",
+            file=sys.stderr,
+        )
+        return 1
     if value < minimum:
         print(
             f"GATE FAIL: {metric}={value:.4f} is below the floor {minimum:.4f}",

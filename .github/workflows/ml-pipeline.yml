@@ -134,8 +134,9 @@ jobs:
           echo "Set the KUBE_CONFIG repository secret to enable the cluster rollout."
           exit 0
         fi
-        echo "$KUBE_CONFIG" > /tmp/kubeconfig
-        export KUBECONFIG=/tmp/kubeconfig
-        kubectl set image deployment/fraud-api \
-          fraud-api=ghcr.io/${{ github.repository }}/fraud-api:${{ github.sha }}
-        kubectl rollout status deployment/fraud-api --timeout=120s
+        mkdir -p ~/.kube
+        printf '%s' "$KUBE_CONFIG" > ~/.kube/config
+        chmod 600 ~/.kube/config
+        kubectl -n fraud-detection set image deployment/fraud-detection-api \
+          api=ghcr.io/${{ github.repository }}/fraud-api:${{ github.sha }}
+        kubectl -n fraud-detection rollout status deployment/fraud-detection-api --timeout=120s

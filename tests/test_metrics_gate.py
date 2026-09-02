@@ -44,3 +44,16 @@ def test_fails_on_malformed_json(tmp_path):
     p = tmp_path / "metrics.json"
     p.write_text("{not valid json")
     assert check_gate(str(p), "auc", 0.90) == 1
+
+
+def test_fails_on_nan_metric(tmp_path):
+    # json.dump emits NaN by default; NaN < floor is False, so an undefined AUC
+    # would slip through without the finite check.
+    p = tmp_path / "metrics.json"
+    p.write_text('{"auc": NaN}')
+    assert check_gate(str(p), "auc", 0.90) == 1
+
+
+def test_fails_on_non_numeric_metric(tmp_path):
+    path = _write(tmp_path, {"auc": "high"})
+    assert check_gate(path, "auc", 0.90) == 1
